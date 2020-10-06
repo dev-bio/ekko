@@ -95,10 +95,12 @@ impl Ekko {
         Ok(domain)
     }
 
+    /// Send an echo request with a default timeout of 250 milliseconds ..
     pub fn send(&mut self, hops: u32) -> Result<EkkoResponse, EkkoError> {
         self.send_with_timeout(hops, Some(Duration::from_millis(256)))
     }
 
+    /// Send an echo request with or without a timeout ..
     pub fn send_with_timeout(&mut self, hops: u32, timeout: Option<Duration>) -> Result<EkkoResponse, EkkoError> {
         self.socket.set_read_timeout(timeout).map_err(|e| {
             EkkoError::SocketSetReadTimeout(e.to_string())
