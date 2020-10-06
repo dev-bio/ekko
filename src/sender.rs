@@ -64,7 +64,8 @@ pub struct Ekko {
     source_socket_address: SocketAddr,
     target_socket_address: SocketAddr,
     socket: Socket,
-    buffer: Vec<u8>,
+    buffer_receive: Vec<u8>,
+    buffer_send: Vec<u8>,
     sequence_number: u16,
 }
 
@@ -99,26 +100,29 @@ impl Ekko {
     }
 
     pub fn send_with_timeout(&mut self, hops: u32, timeout: Option<Duration>) -> Result<EkkoResponse, EkkoError> {
-        self.socket.set_recv_buffer_size(512)
-            .map_err(|_| EkkoError::SocketSetReceiveBufferSize)?;
-        self.socket.set_read_timeout(timeout)
-            .map_err(|_| EkkoError::SocketSetReadTimeout)?;
-        self.socket.set_ttl(hops)
-            .map_err(|_| EkkoError::SocketSetMaxHops)?;
+        self.socket.set_read_timeout(timeout).map_err(|e| {
+            EkkoError::SocketSetReadTimeout(e.to_string())
+        })?;
+
+        self.socket.set_ttl(hops).map_err(|e| {
+            EkkoError::SocketSetMaxHops(e.to_string())
+        })?;
 
         let timepoint = Instant::now();
         match (self.source_socket_address, self.target_socket_address) {
             (SocketAddr::V6(source), SocketAddr::V6(target)) => {
-                self.buffer.resize(512, 0);
-                let request = EchoRequest::new_ipv6(self.buffer.as_mut_slice(), rand::random(), self.sequence_number, &source.ip().segments(), &target.ip().segments())?;
-                self.socket.send_to(&(request.as_slice()[..64]), &(target.into()))
-                .map_err(|e| EkkoError::SocketSend(e.to_string()))?;
+                self.buffer_send.resize(64, 0);
+                let request = EchoRequest::new_ipv6(self.buffer_send.as_mut_slice(), rand::random(), self.sequence_number, &source.ip().segments(), &target.ip().segments())?;
+                self.socket.send_to(request.as_slice(), &(target.into())).map_err(|e| {
+                    EkkoError::SocketSend(e.to_string())
+                })?;
             },
             (SocketAddr::V4(_), SocketAddr::V4(target)) => {
-                self.buffer.resize(512, 0);
-                let request = EchoRequest::new_ipv4(self.buffer.as_mut_slice(), rand::random(), self.sequence_number)?;
-                self.socket.send_to(&(request.as_slice()[..64]), &(target.into()))
-                    .map_err(|e| EkkoError::SocketSend(e.to_string()))?;
+                self.buffer_send.resize(64, 0);
+                let request = EchoRequest::new_ipv4(self.buffer_send.as_mut_slice(), rand::random(), self.sequence_number)?;
+                self.socket.send_to(request.as_slice(), &(target.into())).map_err(|e| {
+                    EkkoError::SocketSend(e.to_string())
+                })?;
             },
             (SocketAddr::V4(source), SocketAddr::V6(target)) => {
                 return Err(EkkoError::SocketIpMismatch { 
@@ -134,21 +138,20 @@ impl Ekko {
             },
         };
 
-        self.buffer.resize(512, 0);
-        if let Ok((_, responder)) = self.socket.recv_from(self.buffer.as_mut_slice())  {
+        self.sequence_number += 1;
+        self.buffer_receive.resize(512, 0);
+        if let Ok((_, responder)) = self.socket.recv_from(self.buffer_receive.as_mut_slice())  {
             let responding_address = match self.source_socket_address {
                 SocketAddr::V6(_) => IpAddr::V6(responder.as_inet6()
                     .ok_or(EkkoError::SocketReceiveNoIpv6)?.ip().clone()),
                 SocketAddr::V4(_) => IpAddr::V4(responder.as_inet()
-                    .ok_or(EkkoError::SocketReceiveNoIpv6)?.ip().clone()),
+                    .ok_or(EkkoError::SocketReceiveNoIpv4)?.ip().clone()),
             };
-
-            self.sequence_number += 1;
 
             let elapsed = timepoint.elapsed();
             let response = match responding_address {
-                IpAddr::V4(_) => EchoResponse::from_slice(&self.buffer[20..]),
-                IpAddr::V6(_) => EchoResponse::from_slice(&self.buffer[..]),
+                IpAddr::V4(_) => EchoResponse::from_slice(&self.buffer_receive[20..]),
+                IpAddr::V6(_) => EchoResponse::from_slice(&self.buffer_receive[..]),
             };
 
             match responding_address {
@@ -300,6 +303,10 @@ impl Ekko {
                     EkkoError::SocketCreateIcmpv4(e.to_string())
                 })?;
 
+                socket.set_recv_buffer_size(512).map_err(|e| {
+                    EkkoError::SocketSetReceiveBufferSize(e.to_string())
+                })?;
+
                 socket.bind(&(source_address.into())).map_err(|_| {
                     EkkoError::SocketBindIpv4(source_address.to_string())
                 })?;
@@ -311,7 +318,8 @@ impl Ekko {
                     source_socket_address: SocketAddr::V4(source_address),
                     target_socket_address: SocketAddr::V4(SocketAddrV4::new(target_address, 0)),
                     socket: socket,
-                    buffer: Vec::with_capacity(512),
+                    buffer_receive: Vec::with_capacity(512),
+                    buffer_send: Vec::with_capacity(64),
                     sequence_number: 0,
                 })
             },
@@ -319,6 +327,10 @@ impl Ekko {
                 let source_address = SocketAddrV6::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0), 0, 0, 0);
                 let socket = Socket::new(Domain::ipv6(), Type::raw(), Some(Protocol::icmpv6())).map_err(|e| {
                     EkkoError::SocketCreateIcmpv6(e.to_string())
+                })?;
+
+                socket.set_recv_buffer_size(512).map_err(|e| {
+                    EkkoError::SocketSetReceiveBufferSize(e.to_string())
                 })?;
 
                 socket.bind(&(source_address.into())).map_err(|_| {
@@ -332,7 +344,8 @@ impl Ekko {
                     source_socket_address: SocketAddr::V6(source_address),
                     target_socket_address: SocketAddr::V6(SocketAddrV6::new(target_address, 0, 0, 0)),
                     socket: socket,
-                    buffer: Vec::with_capacity(512),
+                    buffer_receive: Vec::with_capacity(512),
+                    buffer_send: Vec::with_capacity(64),
                     sequence_number: 0,
                 })
             },

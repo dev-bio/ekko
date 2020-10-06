@@ -18,12 +18,12 @@ pub enum EkkoError {
     SocketReceiveNoIpv6,
     #[error("Cannot combine address '{src:?}' (source) with '{tgt:?}' (target).")]
     SocketIpMismatch { src: String, tgt: String },
-    #[error("Could not set sockets receive buffer size.")]
-    SocketSetReceiveBufferSize,
-    #[error("Could not set sockets read timeout.")]
-    SocketSetReadTimeout,
-    #[error("Could not set sockets max hops.")]
-    SocketSetMaxHops,
+    #[error("Could not set sockets receive buffer size, reason: {0}")]
+    SocketSetReceiveBufferSize(String),
+    #[error("Could not set sockets read timeout, reason: {0}")]
+    SocketSetReadTimeout(String),
+    #[error("Could not set sockets max hops, reason: {0}")]
+    SocketSetMaxHops(String),
     #[error("Failed to read response field: '{0}'")]
     ResponseReadField(&'static str),
     #[error("Failed to read request field: '{0}'")]

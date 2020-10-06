@@ -60,9 +60,9 @@ pub struct EkkoData{
 
 #[derive(Clone, Debug)]
 pub enum EkkoResponse {
-    DestinationResponse(EkkoData),
-    ExceededResponse(EkkoData),
     UnreachableResponse((EkkoData, Unreachable)),
     UnexpectedResponse((EkkoData, (u8, u8))),
+    DestinationResponse(EkkoData),
+    ExceededResponse(EkkoData),
     LackingResponse(EkkoData),
 }
