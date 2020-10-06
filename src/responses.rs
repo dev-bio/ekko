@@ -11,35 +11,35 @@ use std::{
 
 #[derive(Clone, Debug)]
 pub enum UnreachableCodeV4 {
-    DestinationNetworkUnreachable,
-    DestinationHostUnreachable,
-    DestinationProtocolUnreachable,
-    DestinationPortUnreachable,
-    FragmentationRequired,
-    SourceRouteFailed,
-    DestinationNetworkUnknown,
-    DestinationHostUnknown,
-    SourceHostIsolated,
+    CommunicationAdministrativelyProhibited,
     NetworkAdministrativelyProhibited,
     HostAdministrativelyProhibited,
-    NetworkUnreachable,
-    HostUnreachable,
-    CommunicationAdministrativelyProhibited,
+    DestinationProtocolUnreachable,
+    DestinationNetworkUnreachable,
+    DestinationHostUnreachable,
+    DestinationPortUnreachable,
+    DestinationNetworkUnknown,
     HostPrecedenceViolation,
+    DestinationHostUnknown,
+    FragmentationRequired,
+    SourceHostIsolated,
+    NetworkUnreachable,
+    SourceRouteFailed,
     PrecedenceCutoff,
+    HostUnreachable,
     Unexpected(u8),
 }
 
 #[derive(Clone, Debug)]
 pub enum UnreachableCodeV6 {
-    NoRouteToDestination,
     CommunicationWithDestinationAdministrativelyProhibited,
+    SourceAddressFailedIngressEgressPolicy,
+    ErrorInSourceRoutingHeader,
     BeyondScopeOfSourceAddress,
+    RejectRouteToDestination,
+    NoRouteToDestination,
     AddressUnreachable,
     PortUnreachable,
-    SourceAddressFailedIngressEgressPolicy,
-    RejectRouteToDestination,
-    ErrorInSourceRoutingHeader,
     Unexpected(u8),
 }
 
@@ -51,11 +51,11 @@ pub enum Unreachable {
 
 #[derive(Clone, Debug)]
 pub struct EkkoData{
+    pub timepoint: Instant, 
+    pub elapsed: Duration,
     pub address: Option<IpAddr>, 
     pub domain: Option<String>, 
     pub hops: u32,
-    pub timepoint: Instant, 
-    pub elapsed: Duration,
 }
 
 #[derive(Clone, Debug)]

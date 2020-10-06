@@ -28,12 +28,6 @@ use socket2::{
     Type,
 };
 
-use anyhow::bail;
-use anyhow::{
-    Context, 
-    Result, 
-};
-
 use trust_dns_resolver::{
 
     Resolver, 
@@ -46,6 +40,8 @@ use trust_dns_resolver::{
 };
 
 use super::{
+
+    error::{EkkoError},
 
     packets::{
         EchoResponse,
@@ -73,9 +69,11 @@ pub struct Ekko {
 }
 
 impl Ekko {
-    fn resolve_domain(&mut self, target: IpAddr) -> Result<Option<String>> {
-        let domain = if self.resolver_cache.contains_key(&target) {
-            self.resolver_cache.get(&target).context("Getting domain from cache.")?.clone()
+    fn resolve_domain(&mut self, target: IpAddr) -> Result<Option<String>, EkkoError> {
+        let domain = if self.resolver_cache.contains_key(&(target)) {
+            self.resolver_cache.get(&target).ok_or({
+                EkkoError::ResolverDomainCacheLookup(target.to_string())
+            })?.clone()
         } 
         
         else {
@@ -96,37 +94,53 @@ impl Ekko {
         Ok(domain)
     }
 
-    pub fn send(&mut self, hops: u32) -> Result<EkkoResponse> {
+    pub fn send(&mut self, hops: u32) -> Result<EkkoResponse, EkkoError> {
         self.send_with_timeout(hops, Some(Duration::from_millis(256)))
     }
 
-    pub fn send_with_timeout(&mut self, hops: u32, timeout: Option<Duration>) -> Result<EkkoResponse> {
-        self.socket.set_recv_buffer_size(512)?;
-        self.socket.set_read_timeout(timeout)?;
-        self.socket.set_ttl(hops)?;
+    pub fn send_with_timeout(&mut self, hops: u32, timeout: Option<Duration>) -> Result<EkkoResponse, EkkoError> {
+        self.socket.set_recv_buffer_size(512)
+            .map_err(|_| EkkoError::SocketSetReceiveBufferSize)?;
+        self.socket.set_read_timeout(timeout)
+            .map_err(|_| EkkoError::SocketSetReadTimeout)?;
+        self.socket.set_ttl(hops)
+            .map_err(|_| EkkoError::SocketSetMaxHops)?;
 
         let timepoint = Instant::now();
         match (self.source_socket_address, self.target_socket_address) {
             (SocketAddr::V6(source), SocketAddr::V6(target)) => {
                 self.buffer.resize(512, 0);
                 let request = EchoRequest::new_ipv6(self.buffer.as_mut_slice(), rand::random(), self.sequence_number, &source.ip().segments(), &target.ip().segments())?;
-                self.socket.send_to(&(request.as_slice()[..64]), &(target.into()))?;
+                self.socket.send_to(&(request.as_slice()[..64]), &(target.into()))
+                .map_err(|e| EkkoError::SocketSend(e.to_string()))?;
             },
             (SocketAddr::V4(_), SocketAddr::V4(target)) => {
                 self.buffer.resize(512, 0);
                 let request = EchoRequest::new_ipv4(self.buffer.as_mut_slice(), rand::random(), self.sequence_number)?;
-                self.socket.send_to(&(request.as_slice()[..64]), &(target.into()))?;
+                self.socket.send_to(&(request.as_slice()[..64]), &(target.into()))
+                    .map_err(|e| EkkoError::SocketSend(e.to_string()))?;
             },
-            _ => bail!("This should never happen!"),
+            (SocketAddr::V4(source), SocketAddr::V6(target)) => {
+                return Err(EkkoError::SocketIpMismatch { 
+                    src: source.to_string(), 
+                    tgt: target.to_string() 
+                })
+            },
+            (SocketAddr::V6(source), SocketAddr::V4(target)) => {
+                return Err(EkkoError::SocketIpMismatch { 
+                    src: source.to_string(), 
+                    tgt: target.to_string() 
+                })
+            },
         };
 
         self.buffer.resize(512, 0);
         if let Ok((_, responder)) = self.socket.recv_from(self.buffer.as_mut_slice())  {
             let responding_address = match self.source_socket_address {
                 SocketAddr::V6(_) => IpAddr::V6(responder.as_inet6()
-                    .context("Getting IPv6 address.")?.ip().clone()),
+                    .ok_or(EkkoError::SocketReceiveNoIpv6)?.ip().clone()),
                 SocketAddr::V4(_) => IpAddr::V4(responder.as_inet()
-                    .context("Getting IPv4 address.")?.ip().clone()),
+                    .ok_or(EkkoError::SocketReceiveNoIpv6)?.ip().clone()),
             };
 
             self.sequence_number += 1;
@@ -262,25 +276,33 @@ impl Ekko {
         }
     }
 
-    pub fn with_target(target: &str) -> Result<Ekko>  {
-        let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default())?;
+    pub fn with_target(target: &str) -> Result<Ekko, EkkoError>  {
+        let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).map_err(|e| {
+            EkkoError::ResolverCreate(e.to_string())
+        })?;
 
         let target_address = {
             if let Ok(target_address) = target.parse() {
                 target_address
             } else {
-                resolver.lookup_ip(target)?.iter().last()
-                    .context("Retrieving IP from hostname.")?
+                resolver.lookup_ip(target).map_err(|_| {
+                    EkkoError::ResolverIpLookup(target.to_string())
+                })?.iter().last().ok_or({
+                    EkkoError::ResolverIpLookup(target.to_string())
+                })?
             }
         };
 
         match target_address {
             IpAddr::V4(target_address) => {
                 let source_address = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 0);
-                let socket = Socket::new(Domain::ipv4(), Type::raw(), Some(Protocol::icmpv4()))?;
+                let socket = Socket::new(Domain::ipv4(), Type::raw(), Some(Protocol::icmpv4())).map_err(|e| {
+                    EkkoError::SocketCreateIcmpv4(e.to_string())
+                })?;
 
-                socket.bind(&(source_address.into()))
-                    .context("Binding socket to IPv4 address.")?;
+                socket.bind(&(source_address.into())).map_err(|_| {
+                    EkkoError::SocketBindIpv4(source_address.to_string())
+                })?;
 
                 
                 Ok(Ekko {
@@ -295,10 +317,13 @@ impl Ekko {
             },
             IpAddr::V6(target_address) => {
                 let source_address = SocketAddrV6::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0), 0, 0, 0);
-                let socket = Socket::new(Domain::ipv6(), Type::raw(), Some(Protocol::icmpv6()))?;
+                let socket = Socket::new(Domain::ipv6(), Type::raw(), Some(Protocol::icmpv6())).map_err(|e| {
+                    EkkoError::SocketCreateIcmpv6(e.to_string())
+                })?;
 
-                socket.bind(&(source_address.into()))
-                .context("Binding socket to IPv6 address.")?;
+                socket.bind(&(source_address.into())).map_err(|_| {
+                    EkkoError::SocketBindIpv6(source_address.to_string())
+                })?;
 
                 
                 Ok(Ekko {

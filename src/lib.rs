@@ -4,10 +4,12 @@
 //!
 //! ## Example
 //! ```rust,no_run
-//! use ekko::{Ekko, EkkoResponse};
-//! use anyhow::{Result};
+//! use ekko::{ error::{EkkoError},
+//!     EkkoResponse,
+//!     Ekko,
+//! };
 //! 
-//! fn main() -> Result<()> {
+//! fn main() -> Result<(), EkkoError> {
 //!     let mut ping = Ekko::with_target("rustup.rs")?;
 //! 
 //!     for hops in 1..32 {
@@ -32,8 +34,9 @@ mod responses;
 mod packets;
 mod sender;
 
-pub use sender::{Ekko};
+pub mod error;
 
+pub use sender::{Ekko};
 pub use responses::{
     EkkoResponse,
     EkkoData,
