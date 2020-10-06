@@ -10,16 +10,11 @@ license = "MIT"
 edition = "2018"
 
 keywords = [
-    "diagnostics",
-    "traceroute",
-    "tracert",
-    "network",
     "icmpv6",
     "icmpv4",
     "icmp",
     "echo",
     "ping",
-    "pong",
 ]
 
 exclude = [
