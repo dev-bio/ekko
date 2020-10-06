@@ -1,6 +1,6 @@
 <div align="center">
 
-# Ekko
+# 🕊️Ekko
 __Echo Request Utility__
 
 <p>
