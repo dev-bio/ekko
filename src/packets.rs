@@ -30,31 +30,31 @@ impl<'a> EchoResponse<'a> {
     }
 
     pub fn get_type(&self) -> Result<u8> {
-        let mut cursor = Cursor::new(self.buffer);
+        let mut cursor = Cursor::new(&(self.buffer[..64]));
         cursor.set_position(0);
         Ok(cursor.read_u8()?)
     }
 
     pub fn get_code(&self) -> Result<u8> {
-        let mut cursor = Cursor::new(self.buffer);
+        let mut cursor = Cursor::new(&(self.buffer[..64]));
         cursor.set_position(1);
         Ok(cursor.read_u8()?)
     }
 
     pub fn get_checksum(&self) -> Result<u16> {
-        let mut cursor = Cursor::new(self.buffer);
+        let mut cursor = Cursor::new(&(self.buffer[..64]));
         cursor.set_position(2);
         Ok(cursor.read_u16::<BigEndian>()?)
     }
 
     pub fn get_identifier(&self) -> Result<u16> {
-        let mut cursor = Cursor::new(self.buffer);
+        let mut cursor = Cursor::new(&(self.buffer[..64]));
         cursor.set_position(4);
         Ok(cursor.read_u16::<BigEndian>()?)
     }
 
     pub fn get_sequence(&self) -> Result<u16> {
-        let mut cursor = Cursor::new(self.buffer);
+        let mut cursor = Cursor::new(&(self.buffer[..64]));
         cursor.set_position(6);
         Ok(cursor.read_u16::<BigEndian>()?)
     }
@@ -107,8 +107,8 @@ impl<'a> EchoRequest<'a> {
         cursor.write_u16::<BigEndian>(idf)?; // identifier
         cursor.write_u16::<BigEndian>(seq)?; // sequence
 
-        for _ in 0..56 {
-            cursor.write_u16::<BigEndian>(rand::random())?;
+        for _ in 0..36 {
+            cursor.write_u8(rand::random())?;
         }
 
         cursor.set_position(2);
@@ -144,7 +144,7 @@ impl<'a> EchoRequest<'a> {
             sum += sum_segments(src);
             sum += sum_segments(dst);
             sum += data.len() as u32;
-            sum += 58;
+            sum += 58; // next level
         
             while sum >> 16 != 0 {
                 sum = (sum >> 16) + (sum & 0xFFFF);
@@ -159,12 +159,12 @@ impl<'a> EchoRequest<'a> {
         cursor.write_u16::<BigEndian>(idf)?; // identifier
         cursor.write_u16::<BigEndian>(seq)?; // sequence
 
-        for _ in 0..56 {
-            cursor.write_u16::<BigEndian>(rand::random())?;
+        for _ in 0..16 {
+            cursor.write_u8(rand::random())?;
         }
 
         cursor.set_position(2);
-        cursor.write_u16::<BigEndian>(checksum_v6(cursor.get_ref(), src, dst))?;
+        cursor.write_u16::<BigEndian>(checksum_v6(&(cursor.get_ref()[..64]), src, dst))?;
         
         Ok(EchoRequest {
             buffer: cursor.into_inner()
@@ -172,35 +172,35 @@ impl<'a> EchoRequest<'a> {
     }
 
     pub fn as_slice(&self) -> &'a [u8] {
-        self.buffer
+        &(self.buffer[..64])
     }
 
     pub fn get_type(&self) -> Result<u8> {
-        let mut cursor = Cursor::new(self.buffer);
+        let mut cursor = Cursor::new(&(self.buffer[..64]));
         cursor.set_position(0);
         Ok(cursor.read_u8()?)
     }
 
     pub fn get_code(&self) -> Result<u8> {
-        let mut cursor = Cursor::new(self.buffer);
+        let mut cursor = Cursor::new(&(self.buffer[..64]));
         cursor.set_position(1);
         Ok(cursor.read_u8()?)
     }
 
     pub fn get_checksum(&self) -> Result<u16> {
-        let mut cursor = Cursor::new(self.buffer);
+        let mut cursor = Cursor::new(&(self.buffer[..64]));
         cursor.set_position(2);
         Ok(cursor.read_u16::<BigEndian>()?)
     }
 
     pub fn get_identifier(&self) -> Result<u16> {
-        let mut cursor = Cursor::new(self.buffer);
+        let mut cursor = Cursor::new(&(self.buffer[..64]));
         cursor.set_position(4);
         Ok(cursor.read_u16::<BigEndian>()?)
     }
 
     pub fn get_sequence(&self) -> Result<u16> {
-        let mut cursor = Cursor::new(self.buffer);
+        let mut cursor = Cursor::new(&(self.buffer[..64]));
         cursor.set_position(6);
         Ok(cursor.read_u16::<BigEndian>()?)
     }

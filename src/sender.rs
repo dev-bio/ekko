@@ -110,12 +110,12 @@ impl Ekko {
             (SocketAddr::V6(source), SocketAddr::V6(target)) => {
                 self.buffer.resize(512, 0);
                 let request = EchoRequest::new_ipv6(self.buffer.as_mut_slice(), rand::random(), self.sequence_number, &source.ip().segments(), &target.ip().segments())?;
-                self.socket.send_to(request.as_slice(), &(target.into()))?;
+                self.socket.send_to(&(request.as_slice()[..64]), &(target.into()))?;
             },
             (SocketAddr::V4(_), SocketAddr::V4(target)) => {
                 self.buffer.resize(512, 0);
                 let request = EchoRequest::new_ipv4(self.buffer.as_mut_slice(), rand::random(), self.sequence_number)?;
-                self.socket.send_to(request.as_slice(), &(target.into()))?;
+                self.socket.send_to(&(request.as_slice()[..64]), &(target.into()))?;
             },
             _ => bail!("This should never happen!"),
         };
