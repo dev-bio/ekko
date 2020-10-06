@@ -21,7 +21,7 @@ To use `ekko`, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ekko = "0.1.2"
+ekko = "0.1.3"
 ```
 
 ## Example

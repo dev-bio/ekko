@@ -32,36 +32,41 @@ impl<'a> EchoResponse<'a> {
     pub fn get_type(&self) -> Result<u8, EkkoError> {
         let mut cursor = Cursor::new(self.buffer);
         cursor.set_position(0);
-        Ok(cursor.read_u8()
-            .map_err(|_| EkkoError::ResponseReadField("type"))?)
+        Ok(cursor.read_u8().map_err(|e| {
+            EkkoError::ResponseReadField("type", e.to_string())
+        })?)
     }
 
     pub fn get_code(&self) -> Result<u8, EkkoError> {
         let mut cursor = Cursor::new(self.buffer);
         cursor.set_position(1);
-        Ok(cursor.read_u8()
-            .map_err(|_| EkkoError::ResponseReadField("code"))?)
+        Ok(cursor.read_u8().map_err(|e| {
+            EkkoError::ResponseReadField("code", e.to_string())
+        })?)
     }
 
     pub fn get_checksum(&self) -> Result<u16, EkkoError> {
         let mut cursor = Cursor::new(self.buffer);
         cursor.set_position(2);
-        Ok(cursor.read_u16::<BigEndian>()
-            .map_err(|_| EkkoError::ResponseReadField("checksum"))?)
+        Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
+            EkkoError::ResponseReadField("checksum", e.to_string())
+        })?)
     }
 
     pub fn get_identifier(&self) -> Result<u16, EkkoError> {
         let mut cursor = Cursor::new(self.buffer);
         cursor.set_position(4);
-        Ok(cursor.read_u16::<BigEndian>()
-            .map_err(|_| EkkoError::ResponseReadField("identifier"))?)
+        Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
+            EkkoError::ResponseReadField("identifier", e.to_string())
+        })?)
     }
 
     pub fn get_sequence(&self) -> Result<u16, EkkoError> {
         let mut cursor = Cursor::new(self.buffer);
         cursor.set_position(6);
-        Ok(cursor.read_u16::<BigEndian>()
-            .map_err(|_| EkkoError::ResponseReadField("sequence"))?)
+        Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
+            EkkoError::ResponseReadField("sequence", e.to_string())
+        })?)
     }
 }
 
@@ -106,35 +111,35 @@ impl<'a> EchoRequest<'a> {
             !(sum as u16)
         }
 
-        cursor.write_u8(8).map_err(|_| { 
-            EkkoError::RequestWriteIcmpv4Field("type")
+        cursor.write_u8(8).map_err(|e| { 
+            EkkoError::RequestWriteIcmpv4Field("type", e.to_string())
         })?;
 
-        cursor.write_u8(0).map_err(|_| { 
-            EkkoError::RequestWriteIcmpv4Field("code")
+        cursor.write_u8(0).map_err(|e| { 
+            EkkoError::RequestWriteIcmpv4Field("code", e.to_string())
         })?;
 
-        cursor.write_u16::<BigEndian>(0).map_err(|_| { 
-            EkkoError::RequestWriteIcmpv4Field("checksum placeholder")
+        cursor.write_u16::<BigEndian>(0).map_err(|e| { 
+            EkkoError::RequestWriteIcmpv4Field("checksum placeholder", e.to_string())
         })?;
 
-        cursor.write_u16::<BigEndian>(idf).map_err(|_| { 
-            EkkoError::RequestWriteIcmpv4Field("identifier")
+        cursor.write_u16::<BigEndian>(idf).map_err(|e| { 
+            EkkoError::RequestWriteIcmpv4Field("identifier", e.to_string())
         })?;
 
-        cursor.write_u16::<BigEndian>(seq).map_err(|_| { 
-            EkkoError::RequestWriteIcmpv4Field("sequence")
+        cursor.write_u16::<BigEndian>(seq).map_err(|e| { 
+            EkkoError::RequestWriteIcmpv4Field("sequence", e.to_string())
         })?;
 
         for _ in 0..36 {
-            cursor.write_u8(rand::random()).map_err(|_| {
-                EkkoError::RequestWriteIcmpv4Payload
+            cursor.write_u8(rand::random()).map_err(|e| {
+                EkkoError::RequestWriteIcmpv4Payload(e.to_string())
             })?;
         }
 
         cursor.set_position(2);
-        cursor.write_u16::<BigEndian>(checksum_v4(cursor.get_ref())).map_err(|_| {
-            EkkoError::RequestWriteIcmpv4Field("checksum")
+        cursor.write_u16::<BigEndian>(checksum_v4(cursor.get_ref())).map_err(|e| {
+            EkkoError::RequestWriteIcmpv4Field("checksum", e.to_string())
         })?;
         
         Ok(EchoRequest {
@@ -176,35 +181,35 @@ impl<'a> EchoRequest<'a> {
             !(sum as u16)
         }
 
-        cursor.write_u8(128).map_err(|_| {
-            EkkoError::RequestWriteIcmpv6Field("type")
+        cursor.write_u8(128).map_err(|e| {
+            EkkoError::RequestWriteIcmpv6Field("type", e.to_string())
         })?;
 
-        cursor.write_u8(0).map_err(|_| {
-            EkkoError::RequestWriteIcmpv6Field("code")
+        cursor.write_u8(0).map_err(|e| {
+            EkkoError::RequestWriteIcmpv6Field("code", e.to_string())
         })?;
 
-        cursor.write_u16::<BigEndian>(0xFFFF).map_err(|_| {
-            EkkoError::RequestWriteIcmpv6Field("checksum placeholder")
+        cursor.write_u16::<BigEndian>(0xFFFF).map_err(|e| {
+            EkkoError::RequestWriteIcmpv6Field("checksum placeholder", e.to_string())
         })?;
 
-        cursor.write_u16::<BigEndian>(idf).map_err(|_| {
-            EkkoError::RequestWriteIcmpv6Field("identifier")
+        cursor.write_u16::<BigEndian>(idf).map_err(|e| {
+            EkkoError::RequestWriteIcmpv6Field("identifier", e.to_string())
         })?;
 
-        cursor.write_u16::<BigEndian>(seq).map_err(|_| {
-            EkkoError::RequestWriteIcmpv6Field("sequence")
+        cursor.write_u16::<BigEndian>(seq).map_err(|e| {
+            EkkoError::RequestWriteIcmpv6Field("sequence", e.to_string())
         })?;
 
         for _ in 0..16 {
-            cursor.write_u8(rand::random()).map_err(|_| {
-                EkkoError::RequestWriteIcmpv6Payload
+            cursor.write_u8(rand::random()).map_err(|e| {
+                EkkoError::RequestWriteIcmpv6Payload(e.to_string())
             })?;
         }
 
         cursor.set_position(2);
-        cursor.write_u16::<BigEndian>(checksum_v6(&(cursor.get_ref()[..64]), src, dst)).map_err(|_| {
-            EkkoError::RequestWriteIcmpv6Field("checksum")
+        cursor.write_u16::<BigEndian>(checksum_v6(cursor.get_ref(), src, dst)).map_err(|e| {
+            EkkoError::RequestWriteIcmpv6Field("checksum", e.to_string())
         })?;
         
         Ok(EchoRequest {
@@ -219,36 +224,41 @@ impl<'a> EchoRequest<'a> {
     pub fn get_type(&self) -> Result<u8, EkkoError> {
         let mut cursor = Cursor::new(self.buffer);
         cursor.set_position(0);
-        Ok(cursor.read_u8()
-            .map_err(|_| EkkoError::RequestReadField("type"))?)
+        Ok(cursor.read_u8().map_err(|e| {
+            EkkoError::RequestReadField("type", e.to_string())
+        })?)
     }
 
     pub fn get_code(&self) -> Result<u8, EkkoError> {
         let mut cursor = Cursor::new(self.buffer);
         cursor.set_position(1);
-        Ok(cursor.read_u8()
-            .map_err(|_| EkkoError::RequestReadField("code"))?)
+        Ok(cursor.read_u8().map_err(|e| {
+            EkkoError::RequestReadField("code", e.to_string())
+        })?)
     }
 
     pub fn get_checksum(&self) -> Result<u16, EkkoError> {
         let mut cursor = Cursor::new(self.buffer);
         cursor.set_position(2);
-        Ok(cursor.read_u16::<BigEndian>()
-            .map_err(|_| EkkoError::RequestReadField("checksum"))?)
+        Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
+            EkkoError::RequestReadField("checksum", e.to_string())
+        })?)
     }
 
     pub fn get_identifier(&self) -> Result<u16, EkkoError> {
         let mut cursor = Cursor::new(self.buffer);
         cursor.set_position(4);
-        Ok(cursor.read_u16::<BigEndian>()
-            .map_err(|_| EkkoError::RequestReadField("identifier"))?)
+        Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
+            EkkoError::RequestReadField("identifier", e.to_string())
+        })?)
     }
 
     pub fn get_sequence(&self) -> Result<u16, EkkoError> {
         let mut cursor = Cursor::new(self.buffer);
         cursor.set_position(6);
-        Ok(cursor.read_u16::<BigEndian>()
-            .map_err(|_| EkkoError::RequestReadField("sequence"))?)
+        Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
+            EkkoError::RequestReadField("sequence", e.to_string())
+        })?)
     }
 }
 

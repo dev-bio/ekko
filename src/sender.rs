@@ -309,10 +309,9 @@ impl Ekko {
                     EkkoError::SocketSetReceiveBufferSize(e.to_string())
                 })?;
 
-                socket.bind(&(source_address.into())).map_err(|_| {
-                    EkkoError::SocketBindIpv4(source_address.to_string())
+                socket.bind(&(source_address.into())).map_err(|e| {
+                    EkkoError::SocketBindIpv4(source_address.to_string(), e.to_string())
                 })?;
-
                 
                 Ok(Ekko {
                     resolver_cache: HashMap::new(),
@@ -335,11 +334,10 @@ impl Ekko {
                     EkkoError::SocketSetReceiveBufferSize(e.to_string())
                 })?;
 
-                socket.bind(&(source_address.into())).map_err(|_| {
-                    EkkoError::SocketBindIpv6(source_address.to_string())
+                socket.bind(&(source_address.into())).map_err(|e| {
+                    EkkoError::SocketBindIpv6(source_address.to_string(), e.to_string())
                 })?;
-
-                
+  
                 Ok(Ekko {
                     resolver_cache: HashMap::new(),
                     resolver: resolver,
