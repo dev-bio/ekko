@@ -10,6 +10,9 @@ license = "MIT"
 edition = "2018"
 
 exclude = [
+    ".gitattributes",
+    ".gitignore",
+    
     ".github/**", 
     ".cargo/**", 
 ]
