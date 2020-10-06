@@ -1,9 +1,22 @@
+<div align="center">
+
 # Ekko
+__Echo Request Utility__
+
+<p>
+
+[![Rust](https://github.com/dev-bio/Ekko/workflows/Rust/badge.svg)](https://crates.io/crates/ekko)
+[![Documentation](https://docs.rs/ekko/badge.svg)](https://docs.rs/ekko)
+[![License](https://img.shields.io/crates/l/ekko.svg)](https://github.com/dev-bio/ekko/blob/master/licence-mit)
+
+</p>
+</div>
+
+---
+
 Ekko is a simple utility for sending echo requests, giving you (mostly) everything you need. The project is currently at a <u>very</u> early stage so things may be broken or behave unexpectedly!
 
-![Rust](https://github.com/dev-bio/Ekko/workflows/Rust/badge.svg)
-
-## Installation
+## Usage
 To use `ekko`, add this to your `Cargo.toml`:
 
 ```toml
@@ -11,8 +24,8 @@ To use `ekko`, add this to your `Cargo.toml`:
 ekko = "0.1.1"
 ```
 
-## Usage
-The following code will trace the route to the specified destination.
+## Example
+The following example will trace the route to the specified destination.
 ```rust
 use ekko::{ error::{EkkoError},
     EkkoResponse,
