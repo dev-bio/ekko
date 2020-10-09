@@ -1,24 +1,22 @@
 use std::{
 
-    collections::{HashMap}, 
-
+    net::{
+        ToSocketAddrs,
+        SocketAddrV6, 
+        SocketAddrV4, 
+        SocketAddr, 
+    }, 
+    
     net::{
         Ipv6Addr, 
         Ipv4Addr, 
         IpAddr, 
     }, 
-
-    net::{
-        SocketAddrV6,
-        SocketAddrV4, 
-        SocketAddr, 
-    }, 
-
+    
     time::{
         Duration, 
         Instant,
     },
-
 };
 
 use socket2::{
@@ -26,17 +24,6 @@ use socket2::{
     Domain, 
     Socket, 
     Type,
-};
-
-use trust_dns_resolver::{
-
-    Resolver, 
-
-    config::{
-        ResolverConfig, 
-        ResolverOpts,
-    },
-
 };
 
 use super::{
@@ -59,54 +46,27 @@ use super::{
 };
 
 pub struct Ekko {
-    resolver_cache: HashMap<IpAddr, Option<String>>,
-    resolver: Resolver,
     source_socket_address: SocketAddr,
     target_socket_address: SocketAddr,
-    socket: Socket,
+    sequence_number: u16,
     buffer_receive: Vec<u8>,
     buffer_send: Vec<u8>,
-    sequence_number: u16,
+    socket: Socket,
 }
 
 impl Ekko {
-    fn resolve_domain(&mut self, target: IpAddr) -> Result<Option<String>, EkkoError> {
-        let domain = if self.resolver_cache.contains_key(&(target)) {
-            self.resolver_cache.get(&target).ok_or({
-                EkkoError::ResolverDomainCacheLookup(target.to_string())
-            })?.clone()
-        } 
-        
-        else {
-            if let Ok(entries) = self.resolver.reverse_lookup(target) {
-                if let Some(result) = entries.iter().next() {
-                    self.resolver_cache.insert(target, Some(result.to_string()));
-                    Some(result.to_string())
-                } else {
-                    self.resolver_cache.insert(target, None);
-                    None
-                }
-            } else {
-                self.resolver_cache.insert(target, None);
-                None
-            }
-        };
-
-        Ok(domain)
-    }
-
     /// Send an echo request with a default timeout of 250 milliseconds ..
-    pub fn send(&mut self, hops: u32) -> Result<EkkoResponse, EkkoError> {
+    pub fn send(&mut self, hops: u8) -> Result<EkkoResponse, EkkoError> {
         self.send_with_timeout(hops, Some(Duration::from_millis(256)))
     }
 
     /// Send an echo request with or without a timeout ..
-    pub fn send_with_timeout(&mut self, hops: u32, timeout: Option<Duration>) -> Result<EkkoResponse, EkkoError> {
+    pub fn send_with_timeout(&mut self, hops: u8, timeout: Option<Duration>) -> Result<EkkoResponse, EkkoError> {
         self.socket.set_read_timeout(timeout).map_err(|e| {
             EkkoError::SocketSetReadTimeout(e.to_string())
         })?;
 
-        self.socket.set_ttl(hops).map_err(|e| {
+        self.socket.set_ttl((hops % 255).into()).map_err(|e| {
             EkkoError::SocketSetMaxHops(e.to_string())
         })?;
 
@@ -114,7 +74,7 @@ impl Ekko {
         match (self.source_socket_address, self.target_socket_address) {
             (SocketAddr::V6(source), SocketAddr::V6(target)) => {
                 self.buffer_send.resize(64, 0);
-                let request = EchoRequest::new_ipv6(self.buffer_send.as_mut_slice(), rand::random(), self.sequence_number, &source.ip().segments(), &target.ip().segments())?;
+                let request = EchoRequest::new_ipv6(self.buffer_send.as_mut_slice(), rand::random(), self.sequence_number, &(source.ip().segments()), &(target.ip().segments()))?;
                 self.socket.send_to(request.as_slice(), &(target.into())).map_err(|e| {
                     EkkoError::SocketSend(e.to_string())
                 })?;
@@ -140,7 +100,10 @@ impl Ekko {
             },
         };
 
-        self.sequence_number += 1;
+        self.sequence_number = {
+            self.sequence_number.wrapping_add(1)
+        };
+
         self.buffer_receive.resize(512, 0);
         if let Ok((_, responder)) = self.socket.recv_from(self.buffer_receive.as_mut_slice())  {
             let responding_address = match self.source_socket_address {
@@ -172,40 +135,36 @@ impl Ekko {
                         });
 
                         Ok(EkkoResponse::UnreachableResponse((EkkoData { 
-                            address: Some(responding_address), 
-                            domain: self.resolve_domain(responding_address.clone())?, 
-                            hops: hops,
                             timepoint: timepoint, 
                             elapsed: elapsed,
+                            address: Some(responding_address),
+                            hops: hops,
                         }, unreachable_code)))
                     },
                     3 => {
                         Ok(EkkoResponse::ExceededResponse(EkkoData { 
-                            address: Some(responding_address), 
-                            domain: self.resolve_domain(responding_address.clone())?, 
-                            hops: hops,
                             timepoint: timepoint, 
                             elapsed: elapsed,
+                            address: Some(responding_address),
+                            hops: hops,
                         }))
                     },
                     129 => {
                         Ok(EkkoResponse::DestinationResponse(EkkoData { 
-                            address: Some(responding_address), 
-                            domain: self.resolve_domain(responding_address.clone())?, 
-                            hops: hops,
                             timepoint: timepoint, 
                             elapsed: elapsed,
+                            address: Some(responding_address),
+                            hops: hops,
                         }))
                     },
                     _ => {
                         let unexpected = (response.get_type()?, response.get_code()?);
 
                         Ok(EkkoResponse::UnexpectedResponse((EkkoData { 
-                            address: Some(responding_address), 
-                            domain: self.resolve_domain(responding_address.clone())?, 
-                            hops: hops,
                             timepoint: timepoint, 
                             elapsed: elapsed,
+                            address: Some(responding_address),
+                            hops: hops,
                         }, unexpected)))
                     },
                 },
@@ -232,74 +191,61 @@ impl Ekko {
                         });
 
                         Ok(EkkoResponse::UnreachableResponse((EkkoData { 
-                            address: Some(responding_address), 
-                            domain: self.resolve_domain(responding_address.clone())?, 
-                            hops: hops,
                             timepoint: timepoint, 
                             elapsed: elapsed,
+                            address: Some(responding_address),
+                            hops: hops,
                         }, unreachable_code)))
                     },
                     11 => {
                         Ok(EkkoResponse::ExceededResponse(EkkoData { 
-                            address: Some(responding_address), 
-                            domain: self.resolve_domain(responding_address.clone())?, 
-                            hops: hops,
                             timepoint: timepoint, 
                             elapsed: elapsed,
+                            address: Some(responding_address),
+                            hops: hops,
                         }))
                     },
                     0 => {
                         Ok(EkkoResponse::DestinationResponse(EkkoData { 
-                            address: Some(responding_address), 
-                            domain: self.resolve_domain(responding_address.clone())?, 
-                            hops: hops,
                             timepoint: timepoint, 
                             elapsed: elapsed,
+                            address: Some(responding_address),
+                            hops: hops,
                         }))
                     },
                     _ => {
                         let unexpected = (response.get_type()?, response.get_code()?);
 
                         Ok(EkkoResponse::UnexpectedResponse((EkkoData { 
-                            address: Some(responding_address), 
-                            domain: self.resolve_domain(responding_address.clone())?, 
-                            hops: hops,
                             timepoint: timepoint, 
                             elapsed: elapsed,
+                            address: Some(responding_address),
+                            hops: hops,
                         }, unexpected)))
                     },
                 },
             }
         } else {
             Ok(EkkoResponse::LackingResponse(EkkoData { 
-                address: None, 
-                domain: None, 
-                hops: hops,
                 timepoint: timepoint, 
                 elapsed: timepoint.elapsed(),
+                address: None,
+                hops: hops,
             }))
         }
     }
 
     pub fn with_target(target: &str) -> Result<Ekko, EkkoError>  {
-        let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).map_err(|e| {
-            EkkoError::ResolverCreate(e.to_string())
-        })?;
+        let target_socket_address = target.to_socket_addrs().map_err(|e| {
+            EkkoError::DnsLookup(target.to_string(), e.to_string())
+        }).or_else(|_| format!("{}:0", target).to_socket_addrs().map_err(|e| {
+            EkkoError::DnsLookup(target.to_string(), e.to_string())
+        })).and_then(|results| results.last().ok_or({
+            EkkoError::DnsLookupNoResults(target.to_string())
+        })).and_then(|result| Ok(result))?;
 
-        let target_address = {
-            if let Ok(target_address) = target.parse() {
-                target_address
-            } else {
-                resolver.lookup_ip(target).map_err(|_| {
-                    EkkoError::ResolverIpLookup(target.to_string())
-                })?.iter().last().ok_or({
-                    EkkoError::ResolverIpLookup(target.to_string())
-                })?
-            }
-        };
-
-        match target_address {
-            IpAddr::V4(target_address) => {
+        match target_socket_address.ip() {
+            IpAddr::V4(_) => {
                 let source_address = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 0);
                 let socket = Socket::new(Domain::ipv4(), Type::raw(), Some(Protocol::icmpv4())).map_err(|e| {
                     EkkoError::SocketCreateIcmpv4(e.to_string())
@@ -314,17 +260,15 @@ impl Ekko {
                 })?;
                 
                 Ok(Ekko {
-                    resolver_cache: HashMap::new(),
-                    resolver: resolver,
                     source_socket_address: SocketAddr::V4(source_address),
-                    target_socket_address: SocketAddr::V4(SocketAddrV4::new(target_address, 0)),
-                    socket: socket,
+                    target_socket_address: target_socket_address,
+                    sequence_number: 0,
                     buffer_receive: Vec::with_capacity(512),
                     buffer_send: Vec::with_capacity(64),
-                    sequence_number: 0,
+                    socket: socket,
                 })
             },
-            IpAddr::V6(target_address) => {
+            IpAddr::V6(_) => {
                 let source_address = SocketAddrV6::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0), 0, 0, 0);
                 let socket = Socket::new(Domain::ipv6(), Type::raw(), Some(Protocol::icmpv6())).map_err(|e| {
                     EkkoError::SocketCreateIcmpv6(e.to_string())
@@ -339,14 +283,12 @@ impl Ekko {
                 })?;
   
                 Ok(Ekko {
-                    resolver_cache: HashMap::new(),
-                    resolver: resolver,
                     source_socket_address: SocketAddr::V6(source_address),
-                    target_socket_address: SocketAddr::V6(SocketAddrV6::new(target_address, 0, 0, 0)),
-                    socket: socket,
+                    target_socket_address: target_socket_address,
+                    sequence_number: 0,
                     buffer_receive: Vec::with_capacity(512),
                     buffer_send: Vec::with_capacity(64),
-                    sequence_number: 0,
+                    socket: socket,
                 })
             },
         }

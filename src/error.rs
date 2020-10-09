@@ -36,12 +36,8 @@ pub enum EkkoError {
     RequestWriteIcmpv4Payload(String),
     #[error("Failed to write request payload, reason: {0}")]
     RequestWriteIcmpv6Payload(String),
-    #[error("Failed to create resolver, reason: {0}")]
-    ResolverCreate(String),
-    #[error("Failed to resolve address for hostname: '{0}'")]
-    ResolverIpLookup(String),
-    #[error("Failed to resolve domain for address: '{0}'")]
-    ResolverDomainLookup(String),
-    #[error("Failed to retrieve domain from cache for address: '{0}'")]
-    ResolverDomainCacheLookup(String),
+    #[error("Failed to resolve address for hostname '{0}'.")]
+    DnsLookupNoResults(String),
+    #[error("Failed to resolve address for hostname '{0}', reason: {1}")]
+    DnsLookup(String, String),
 }

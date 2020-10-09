@@ -90,18 +90,10 @@ impl<'a> EchoRequest<'a> {
         let mut cursor = Cursor::new(buffer);
 
         fn checksum_v4(data: &[u8]) -> u16 {
-            let mut sum: u32 = data.chunks(2).map(|chunk| {
-                match chunk {
-                    &[a, b, ..] => {
-                        u16::from_be_bytes([a, b]) as u32
-                    },
-                    &[.., a] => {
-                        ((a as u32) << 8) as u32
-                    },
-                    _ => { 
-                        0 as u32 
-                    },
-                }
+            let mut sum: u32 = data.chunks(2).map(|chunk| match chunk {
+                &[a, b, ..] => u16::from_be_bytes([a, b]) as u32,
+                &[.., a] => ((a as u32) << 8) as u32,
+                &[..] => 0 as u32,
             }).sum();
         
             while sum >> 16 != 0 {
@@ -155,24 +147,16 @@ impl<'a> EchoRequest<'a> {
                 segments.iter().map(|w| *w as u32).sum()
             }
         
-            let mut sum: u32 = data.chunks(2).map(|chunk| {
-                match chunk {
-                    &[a, b, ..] => {
-                        u16::from_be_bytes([a, b]) as u32
-                    },
-                    &[.., a] => {
-                        ((a as u32) << 8) as u32
-                    },
-                    _ => { 
-                        0 as u32 
-                    },
-                }
+            let mut sum: u32 = data.chunks(2).map(|chunk| match chunk {
+                &[a, b, ..] => u16::from_be_bytes([a, b]) as u32,
+                &[.., a] => ((a as u32) << 8) as u32,
+                &[..] => 0 as u32,
             }).sum();
             
             sum += sum_segments(src);
             sum += sum_segments(dst);
             sum += (data.len() + 16) as u32;
-            sum += 58; // next level
+            sum += 58;
         
             while sum >> 16 != 0 {
                 sum = (sum >> 16) + (sum & 0xFFFF);
