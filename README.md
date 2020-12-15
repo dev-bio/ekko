@@ -6,6 +6,7 @@ __Echo Request Utility__
 <p>
 
 [![Rust](https://github.com/dev-bio/Ekko/workflows/Rust/badge.svg)](https://crates.io/crates/ekko)
+[![dependency status](https://deps.rs/crate/ekko/0.2.0/status.svg)](https://deps.rs/crate/ekko/0.2.0)
 [![Documentation](https://docs.rs/ekko/badge.svg)](https://docs.rs/ekko)
 [![License](https://img.shields.io/crates/l/ekko.svg)](https://choosealicense.com/licenses/mit/)
 
