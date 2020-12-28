@@ -42,7 +42,6 @@ use super::{
         UnreachableCodeV6,
         UnreachableCodeV4,
     },
-
 };
 
 pub struct Ekko {
@@ -55,9 +54,9 @@ pub struct Ekko {
 }
 
 impl Ekko {
-    /// Send an echo request with a default timeout of 250 milliseconds ..
+    /// Send an echo request with a default timeout of 100 milliseconds ..
     pub fn send(&mut self, hops: u8) -> Result<EkkoResponse, EkkoError> {
-        self.send_with_timeout(hops, Some(Duration::from_millis(256)))
+        self.send_with_timeout(hops, Some(Duration::from_millis(100)))
     }
 
     /// Send an echo request with or without a timeout ..
@@ -66,13 +65,13 @@ impl Ekko {
             EkkoError::SocketSetReadTimeout(e.to_string())
         })?;
 
-        self.socket.set_ttl((hops % 255).into()).map_err(|e| {
-            EkkoError::SocketSetMaxHops(e.to_string())
-        })?;
-
         let timepoint = Instant::now();
         match (self.source_socket_address, self.target_socket_address) {
             (SocketAddr::V6(source), SocketAddr::V6(target)) => {
+                self.socket.set_unicast_hops_v6(hops.into()).map_err(|e| {
+                    EkkoError::SocketSetMaxHopsIpv6(e.to_string())
+                })?;
+
                 self.buffer_send.resize(64, 0);
                 let request = EchoRequest::new_ipv6(self.buffer_send.as_mut_slice(), rand::random(), self.sequence_number, &(source.ip().segments()), &(target.ip().segments()))?;
                 self.socket.send_to(request.as_slice(), &(target.into())).map_err(|e| {
@@ -80,6 +79,10 @@ impl Ekko {
                 })?;
             },
             (SocketAddr::V4(_), SocketAddr::V4(target)) => {
+                self.socket.set_ttl(hops.into()).map_err(|e| {
+                    EkkoError::SocketSetMaxHopsIpv4(e.to_string())
+                })?;
+
                 self.buffer_send.resize(64, 0);
                 let request = EchoRequest::new_ipv4(self.buffer_send.as_mut_slice(), rand::random(), self.sequence_number)?;
                 self.socket.send_to(request.as_slice(), &(target.into())).map_err(|e| {
@@ -236,12 +239,12 @@ impl Ekko {
     }
 
     pub fn with_target(target: &str) -> Result<Ekko, EkkoError>  {
-        let target_socket_address = target.to_socket_addrs().map_err(|e| {
-            EkkoError::DnsLookup(target.to_string(), e.to_string())
-        }).or_else(|_| format!("{}:0", target).to_socket_addrs().map_err(|e| {
-            EkkoError::DnsLookup(target.to_string(), e.to_string())
-        })).and_then(|results| results.last().ok_or({
-            EkkoError::DnsLookupNoResults(target.to_string())
+        let target_socket_address = target.to_socket_addrs().or_else(|_| {
+            format!("{}:0", target).to_socket_addrs().map_err(|e| {
+                EkkoError::BadTarget(target.to_string(), e.to_string())
+            })
+        }).and_then(|results| results.last().ok_or({
+            EkkoError::UnresolvedTarget(target.to_string())
         })).and_then(|result| Ok(result))?;
 
         match target_socket_address.ip() {
