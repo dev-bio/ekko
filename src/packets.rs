@@ -73,11 +73,12 @@ impl<'a> EchoResponse<'a> {
 impl<'a> Debug for EchoResponse<'a> {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> FmtResult {
         fmt.debug_struct("EchoResponse")
-            .field("type", &self.get_type())
-            .field("code", &self.get_code())
-            .field("checksum", &self.get_checksum())
-            .field("identifier", &self.get_identifier())
-            .field("sequence", &self.get_sequence()).finish()
+            .field("identifier", &(self.get_identifier()))
+            .field("sequence", &(self.get_sequence()))
+            .field("checksum", &(self.get_checksum()))
+            .field("type", &(self.get_type()))
+            .field("code", &(self.get_code()))
+            .finish()
     }
 }
 
@@ -251,10 +252,11 @@ impl<'a> EchoRequest<'a> {
 impl<'a> Debug for EchoRequest<'a> {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> FmtResult {
         fmt.debug_struct("EchoRequest")
-            .field("type", &self.get_type())
-            .field("code", &self.get_code())
-            .field("checksum", &self.get_checksum())
-            .field("identifier", &self.get_identifier())
-            .field("sequence", &self.get_sequence()).finish()
+            .field("identifier", &(self.get_identifier()))
+            .field("sequence", &(self.get_sequence()))
+            .field("checksum", &(self.get_checksum()))
+            .field("type", &(self.get_type()))
+            .field("code", &(self.get_code()))
+            .finish()
     }
 }
