@@ -16,13 +16,30 @@
 //!         let response = ping.send(hops)?;
 //! 
 //!         match response {
-//!             EkkoResponse::DestinationResponse(_) => {
-//!                 println!("{:?}", response);
+//!             EkkoResponse::DestinationResponse(data) => {
+//!                 println!("DestinationResponse: {:#?}", data);
 //!                 break
-//!             },
-//!             _ => {
-//!                 println!("{:?}", response);
-//!             },
+//!             }
+//! 
+//!             EkkoResponse::UnreachableResponse((data, reason)) => {
+//!                 println!("UnreachableResponse: {:#?} | {:#?}", data, reason);
+//!                 continue
+//!             }
+//! 
+//!             EkkoResponse::UnexpectedResponse((data, (t, c))) => {
+//!                 println!("UnexpectedResponse: ({}, {}), {:#?}", t, c, data);
+//!                 continue
+//!             }
+//! 
+//!             EkkoResponse::ExceededResponse(data) => {
+//!                 println!("ExceededResponse: {:#?}", data);
+//!                 continue
+//!             }
+//! 
+//!             EkkoResponse::LackingResponse(data) => {
+//!                 println!("LackingResponse: {:#?}", data);
+//!                 continue
+//!             }
 //!         }
 //!     }
 //! 

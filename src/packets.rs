@@ -73,11 +73,12 @@ impl<'a> EchoResponse<'a> {
 impl<'a> Debug for EchoResponse<'a> {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> FmtResult {
         fmt.debug_struct("EchoResponse")
-            .field("type", &self.get_type())
-            .field("code", &self.get_code())
-            .field("checksum", &self.get_checksum())
-            .field("identifier", &self.get_identifier())
-            .field("sequence", &self.get_sequence()).finish()
+            .field("identifier", &(self.get_identifier()))
+            .field("sequence", &(self.get_sequence()))
+            .field("checksum", &(self.get_checksum()))
+            .field("type", &(self.get_type()))
+            .field("code", &(self.get_code()))
+            .finish()
     }
 }
 
@@ -92,7 +93,7 @@ impl<'a> EchoRequest<'a> {
         fn checksum_v4(data: &[u8]) -> u16 {
             let mut sum: u32 = data.chunks(2).map(|chunk| match chunk {
                 &[a, b, ..] => u16::from_be_bytes([a, b]) as u32,
-                &[.., a] => ((a as u32) << 8) as u32,
+                &[.., a] => ((a as u32) << 8),
                 &[..] => 0 as u32,
             }).sum();
         
@@ -144,12 +145,14 @@ impl<'a> EchoRequest<'a> {
 
         fn checksum_v6(data: &[u8], src: &[u16; 8], dst: &[u16; 8]) -> u16 {
             fn sum_segments(segments: &[u16; 8]) -> u32 {
-                segments.iter().map(|w| *w as u32).sum()
+                segments.iter().fold(0, |n, x| {
+                    n + (x.clone() as u32)
+                })
             }
         
             let mut sum: u32 = data.chunks(2).map(|chunk| match chunk {
                 &[a, b, ..] => u16::from_be_bytes([a, b]) as u32,
-                &[.., a] => ((a as u32) << 8) as u32,
+                &[.., a] => ((a as u32) << 8),
                 &[..] => 0 as u32,
             }).sum();
             
@@ -249,10 +252,11 @@ impl<'a> EchoRequest<'a> {
 impl<'a> Debug for EchoRequest<'a> {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> FmtResult {
         fmt.debug_struct("EchoRequest")
-            .field("type", &self.get_type())
-            .field("code", &self.get_code())
-            .field("checksum", &self.get_checksum())
-            .field("identifier", &self.get_identifier())
-            .field("sequence", &self.get_sequence()).finish()
+            .field("identifier", &(self.get_identifier()))
+            .field("sequence", &(self.get_sequence()))
+            .field("checksum", &(self.get_checksum()))
+            .field("type", &(self.get_type()))
+            .field("code", &(self.get_code()))
+            .finish()
     }
 }

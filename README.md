@@ -15,14 +15,14 @@ __Echo Request Utility__
 
 ---
 
-Ekko is a simple utility for sending echo requests, giving you (mostly) everything you need. The project is currently at a <u>very</u> early stage so things may be broken or behave unexpectedly!
+Ekko is a simple and light utility for sending echo requests, giving you (mostly) everything you need.
 
 ## Usage
 To use `ekko`, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ekko = "0.2.0"
+ekko = "0.2.1"
 ```
 
 ## Example
@@ -32,24 +32,41 @@ use ekko::{ error::{EkkoError},
     EkkoResponse,
     Ekko,
 };
-
+ 
 fn main() -> Result<(), EkkoError> {
-    let mut sender = Ekko::with_target("rustup.rs")?;
-
+    let mut ping = Ekko::with_target("rustup.rs")?;
+    
     for hops in 1..32 {
-        let response = sender.send(hops)?;
-
+        let response = ping.send(hops)?;
+ 
         match response {
-            EkkoResponse::DestinationResponse(_) => {
-                println!("{:?}", response);
+            EkkoResponse::DestinationResponse(data) => {
+                println!("DestinationResponse: {:#?}", data);
                 break
-            },
-            _ => {
-                println!("{:?}", response);
-            },
+            }
+            
+            EkkoResponse::UnreachableResponse((data, reason)) => {
+                println!("UnreachableResponse: {:#?} | {:#?}", data, reason);
+                continue
+            }
+            
+            EkkoResponse::UnexpectedResponse((data, (t, c))) => {
+                println!("UnexpectedResponse: ({}, {}), {:#?}", t, c, data);
+                continue
+            }
+            
+            EkkoResponse::ExceededResponse(data) => {
+                println!("ExceededResponse: {:#?}", data);
+                continue
+            }
+            
+            EkkoResponse::LackingResponse(data) => {
+                println!("LackingResponse: {:#?}", data);
+                continue
+            }
         }
     }
-
+    
     Ok(())
 }
 ```

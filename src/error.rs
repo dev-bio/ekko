@@ -22,8 +22,10 @@ pub enum EkkoError {
     SocketSetReceiveBufferSize(String),
     #[error("Could not set sockets read timeout, reason: {0}")]
     SocketSetReadTimeout(String),
-    #[error("Could not set sockets max hops, reason: {0}")]
-    SocketSetMaxHops(String),
+    #[error("Could not set socket max hops, reason: {0}")]
+    SocketSetMaxHopsIpv4(String),
+    #[error("Could not set socket max hops, reason: {0}")]
+    SocketSetMaxHopsIpv6(String),
     #[error("Failed to read response field '{0}', reason: {1}")]
     ResponseReadField(&'static str, String),
     #[error("Failed to read request field '{0}', reason: {1}")]
@@ -37,7 +39,7 @@ pub enum EkkoError {
     #[error("Failed to write request payload, reason: {0}")]
     RequestWriteIcmpv6Payload(String),
     #[error("Failed to resolve address for hostname '{0}'.")]
-    DnsLookupNoResults(String),
+    UnresolvedTarget(String),
     #[error("Failed to resolve address for hostname '{0}', reason: {1}")]
-    DnsLookup(String, String),
+    BadTarget(String, String),
 }
