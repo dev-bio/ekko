@@ -53,8 +53,8 @@ pub enum Unreachable {
 pub struct EkkoData{
     pub timepoint: Instant, 
     pub elapsed: Duration,
-    pub address: Option<IpAddr>, 
-    pub hops: u8,
+    pub address: Option<IpAddr>,
+    pub hops: u32,
 }
 
 impl Ord for EkkoData {
