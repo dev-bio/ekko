@@ -61,11 +61,11 @@ pub struct Ekko {
 impl Ekko {
     /// Send an echo request with a default timeout of 100 milliseconds ..
     pub fn send(&mut self, hops: u32) -> Result<EkkoResponse, EkkoError> {
-        self.send_with_timeout(hops, Some(Duration::from_millis(100)))
+        self.send_with_timeout(hops, Duration::from_millis(100))
     }
 
     /// Send an echo request with or without a timeout ..
-    pub fn send_with_timeout(&mut self, hops: u32, timeout: Option<Duration>) -> Result<EkkoResponse, EkkoError> {
+    pub fn send_with_timeout(&mut self, hops: u32, timeout: Duration) -> Result<EkkoResponse, EkkoError> {
         let sequence_number = self.sequence_number;
         let identifier = self.identifier;
         
@@ -112,20 +112,18 @@ impl Ekko {
         };
 
         loop {
-            if let Some(timeout) = timeout {
-                if timepoint.elapsed() > timeout {
-                    break Ok(EkkoResponse::LackingResponse(EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: timepoint.elapsed(),
-                        address: None,
-                        hops: hops,
-                    }))
-                }
-
-                self.socket.set_read_timeout(Some(timeout - timepoint.elapsed())).map_err(|e| {
-                    EkkoError::SocketSetReadTimeout(e.to_string())
-                })?;
+            if timepoint.elapsed() > timeout {
+                break Ok(EkkoResponse::LackingResponse(EkkoData { 
+                    timepoint: timepoint, 
+                    elapsed: timepoint.elapsed(),
+                    address: None,
+                    hops: hops,
+                }))
             }
+
+            self.socket.set_read_timeout(Some(timeout - timepoint.elapsed())).map_err(|e| {
+                EkkoError::SocketSetReadTimeout(e.to_string())
+            })?;
 
             self.buffer_receive.resize(512, 0);
             if let Ok((_, responder)) = self.socket.recv_from(self.buffer_receive.as_mut_slice()) {
@@ -272,7 +270,7 @@ impl Ekko {
         }
     }
 
-    /// Build a requestor with target.
+    /// Build a client with target address ..
     pub fn with_target(target: &str) -> Result<Ekko, EkkoError>  {
         let target_socket_address = target.to_socket_addrs().or_else(|_| {
             format!("{}:0", target).to_socket_addrs().map_err(|e| {
