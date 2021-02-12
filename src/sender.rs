@@ -154,56 +154,9 @@ impl Ekko {
                 }
 
                 match responding_address {
-                    IpAddr::V6(_) => match response.get_type()? {
-                        1 => {
-                            let unreachable_code = Unreachable::V6(match response.get_code()? {
-                                0 => UnreachableCodeV6::NoRouteToDestination,
-                                1 => UnreachableCodeV6::CommunicationWithDestinationAdministrativelyProhibited,
-                                2 => UnreachableCodeV6::BeyondScopeOfSourceAddress,
-                                3 => UnreachableCodeV6::AddressUnreachable,
-                                4 => UnreachableCodeV6::PortUnreachable,
-                                5 => UnreachableCodeV6::SourceAddressFailedIngressEgressPolicy,
-                                6 => UnreachableCodeV6::RejectRouteToDestination,
-                                7 => UnreachableCodeV6::ErrorInSourceRoutingHeader,
-                                _ => UnreachableCodeV6::Unexpected(response.get_code()?),
-                            });
-
-                            break Ok(EkkoResponse::UnreachableResponse((EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }, unreachable_code)))
-                        },
-                        3 => {
-                            break Ok(EkkoResponse::ExceededResponse(EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }))
-                        },
-                        129 => {
-                            break Ok(EkkoResponse::DestinationResponse(EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }))
-                        },
-                        _ => {
-                            let unexpected = (response.get_type()?, response.get_code()?);
-
-                            break Ok(EkkoResponse::UnexpectedResponse((EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }, unexpected)))
-                        },
-                    },
                     IpAddr::V4(_) => match response.get_type()? {
                         3 => {
+                            // ! TODO ! - Parse and include data sections ..
                             let unreachable_code = Unreachable::V4(match response.get_code()? {
                                 0  => UnreachableCodeV4::DestinationNetworkUnreachable,
                                 1  => UnreachableCodeV4::DestinationHostUnreachable,
@@ -230,7 +183,8 @@ impl Ekko {
                                 address: Some(responding_address),
                                 hops: hops,
                             }, unreachable_code)))
-                        },
+                        }
+
                         11 => {
                             break Ok(EkkoResponse::ExceededResponse(EkkoData { 
                                 timepoint: timepoint, 
@@ -238,7 +192,8 @@ impl Ekko {
                                 address: Some(responding_address),
                                 hops: hops,
                             }))
-                        },
+                        }
+
                         0 => {
                             break Ok(EkkoResponse::DestinationResponse(EkkoData { 
                                 timepoint: timepoint, 
@@ -246,7 +201,8 @@ impl Ekko {
                                 address: Some(responding_address),
                                 hops: hops,
                             }))
-                        },
+                        }
+
                         _ => {
                             let unexpected = (response.get_type()?, response.get_code()?);
 
@@ -256,8 +212,61 @@ impl Ekko {
                                 address: Some(responding_address),
                                 hops: hops,
                             }, unexpected)))
-                        },
-                    },
+                        }
+                    }
+
+                    IpAddr::V6(_) => match response.get_type()? {
+                        1 => {
+                            // ! TODO ! - Parse and include data sections ..
+                            let unreachable_code = Unreachable::V6(match response.get_code()? {
+                                0 => UnreachableCodeV6::NoRouteToDestination,
+                                1 => UnreachableCodeV6::CommunicationWithDestinationAdministrativelyProhibited,
+                                2 => UnreachableCodeV6::BeyondScopeOfSourceAddress,
+                                3 => UnreachableCodeV6::AddressUnreachable,
+                                4 => UnreachableCodeV6::PortUnreachable,
+                                5 => UnreachableCodeV6::SourceAddressFailedIngressEgressPolicy,
+                                6 => UnreachableCodeV6::RejectRouteToDestination,
+                                7 => UnreachableCodeV6::ErrorInSourceRoutingHeader,
+                                _ => UnreachableCodeV6::Unexpected(response.get_code()?),
+                            });
+
+                            break Ok(EkkoResponse::UnreachableResponse((EkkoData { 
+                                timepoint: timepoint, 
+                                elapsed: elapsed,
+                                address: Some(responding_address),
+                                hops: hops,
+                            }, unreachable_code)))
+                        }
+
+                        3 => {
+                            break Ok(EkkoResponse::ExceededResponse(EkkoData { 
+                                timepoint: timepoint, 
+                                elapsed: elapsed,
+                                address: Some(responding_address),
+                                hops: hops,
+                            }))
+                        }
+
+                        129 => {
+                            break Ok(EkkoResponse::DestinationResponse(EkkoData { 
+                                timepoint: timepoint, 
+                                elapsed: elapsed,
+                                address: Some(responding_address),
+                                hops: hops,
+                            }))
+                        }
+
+                        _ => {
+                            let unexpected = (response.get_type()?, response.get_code()?);
+
+                            break Ok(EkkoResponse::UnexpectedResponse((EkkoData { 
+                                timepoint: timepoint, 
+                                elapsed: elapsed,
+                                address: Some(responding_address),
+                                hops: hops,
+                            }, unexpected)))
+                        }
+                    }
                 }
             } else {
                 break Ok(EkkoResponse::LackingResponse(EkkoData { 
@@ -271,12 +280,16 @@ impl Ekko {
     }
 
     /// Build a client with target address ..
-    pub fn with_target(target: &str) -> Result<Ekko, EkkoError>  {
+    pub fn with_target(target: &str) -> Result<Ekko, EkkoError> {
         let target_socket_address = target.to_socket_addrs().or_else(|_| {
-            format!("{}:0", target).to_socket_addrs().map_err(|e| {
+            format!("[{}]:0", target).to_socket_addrs().or_else(|_| {
+                format!("{}:0", target).to_socket_addrs().map_err(|e| {
+                    EkkoError::BadTarget(target.to_string(), e.to_string())
+                })
+            }).map_err(|e| {
                 EkkoError::BadTarget(target.to_string(), e.to_string())
             })
-        }).and_then(|results| results.last().ok_or({
+        }).and_then(|results| results.into_iter().next().ok_or({
             EkkoError::UnresolvedTarget(target.to_string())
         })).and_then(|result| Ok(result))?;
 
@@ -304,7 +317,8 @@ impl Ekko {
                     buffer_send: Vec::with_capacity(64),
                     socket: socket,
                 })
-            },
+            }
+
             IpAddr::V6(_) => {
                 let source_address = SocketAddrV6::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0), 0, 0, 0);
                 let socket = Socket::new(Domain::ipv6(), Type::raw(), Some(Protocol::icmpv6())).map_err(|e| {
@@ -328,7 +342,7 @@ impl Ekko {
                     buffer_send: Vec::with_capacity(64),
                     socket: socket,
                 })
-            },
+            }
         }
     }
 }
