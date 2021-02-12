@@ -21,8 +21,9 @@ exclude = [
     ".gitattributes",
     ".gitignore",
     
+    ".vscode/**",
     ".github/**", 
-    ".cargo/**", 
+    ".cargo/**",
 ]
 
 [dependencies]
