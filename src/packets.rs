@@ -32,7 +32,8 @@ impl<'a> EchoResponse<'a> {
                 Ok(cursor.read_u8().map_err(|e| {
                     EkkoError::ResponseReadField("type", e.to_string())
                 })?)
-            },
+            }
+
             Self::V6(buffer) => {
                 let mut cursor = Cursor::new(buffer);
                 cursor.set_position(0);
@@ -51,14 +52,15 @@ impl<'a> EchoResponse<'a> {
                 Ok(cursor.read_u8().map_err(|e| {
                     EkkoError::ResponseReadField("code", e.to_string())
                 })?)
-            },
+            }
+
             Self::V6(buffer) => {
                 let mut cursor = Cursor::new(buffer);
                 cursor.set_position(1);
                 Ok(cursor.read_u8().map_err(|e| {
                     EkkoError::ResponseReadField("code", e.to_string())
                 })?)
-            },
+            }
         }
     }
 
@@ -70,7 +72,8 @@ impl<'a> EchoResponse<'a> {
                 Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
                     EkkoError::ResponseReadField("checksum", e.to_string())
                 })?)
-            },
+            }
+
             Self::V6(buffer) => {
                 let mut cursor = Cursor::new(buffer);
                 cursor.set_position(2);
@@ -82,70 +85,67 @@ impl<'a> EchoResponse<'a> {
     }
 
     pub fn get_identifier(&self) -> Result<u16, EkkoError> {
-        match self {
-            Self::V4(buffer) => {
-                let mut cursor = Cursor::new(buffer);
-                match self.get_type()? {
-                    3 | 5 | 11 => {
-                        cursor.set_position(8);
-                        let header_octets = ((cursor.read_u8().map_err(|e| {
-                            EkkoError::ResponseReadField("internet protocol header size", e.to_string())
-                        })? & 0x0F) * 4) as u64;
-                        cursor.set_position((8 + header_octets) + 4)
-                    }
-
-                    _ => cursor.set_position(4)
-                }
-
-                Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
-                    EkkoError::ResponseReadField("identifier", e.to_string())
-                })?)
-            },
-            Self::V6(buffer) => {
-                let mut cursor = Cursor::new(buffer);
-                match self.get_type()? {
-                    3 | 5 | 11 => cursor.set_position(54),
-                    _ => cursor.set_position(4),
-                }
-
-                Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
-                    EkkoError::ResponseReadField("identifier", e.to_string())
-                })?)
-            },
-        }
+        let mut cursor = Cursor::new(self.get_originator_data()?);
+        
+        cursor.set_position(0);
+        Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
+            EkkoError::ResponseReadField("sequence number", e.to_string())
+        })?)
     }
 
     pub fn get_sequence_number(&self) -> Result<u16, EkkoError> {
+        let mut cursor = Cursor::new(self.get_originator_data()?);
+
+        cursor.set_position(2);
+        Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
+            EkkoError::ResponseReadField("sequence number", e.to_string())
+        })?)
+    }
+
+    fn get_originator_data(&self) -> Result<&'a [u8], EkkoError> {
         match self {
             Self::V4(buffer) => {
-                let mut cursor = Cursor::new(buffer);
                 match self.get_type()? {
-                    3 | 5 | 11 => {
+                    0 => {
+                        let head = 4;
+                        let tail = head + 4;
+
+                        Ok(&(buffer[head .. tail]))
+                    }
+
+                    _ => {
+                        let mut cursor = Cursor::new(buffer);
+
                         cursor.set_position(8);
                         let header_octets = ((cursor.read_u8().map_err(|e| {
                             EkkoError::ResponseReadField("internet protocol header size", e.to_string())
-                        })? & 0x0F) * 4) as u64;
-                        cursor.set_position((8 + header_octets) + 6)
+                        })? & 0x0F) * 4) as usize;
+                        let head = 8 + header_octets + 4;
+                        let tail = head + 4;
+
+                        Ok(&(buffer[head .. tail]))
+                    }
+                }
+            }
+
+            Self::V6(buffer) => {
+                match self.get_type()? { 
+                    129 => {
+                        let head = 4;
+                        let tail = head + 4;
+
+                        Ok(&(buffer[head .. tail]))
                     }
 
-                    _ => cursor.set_position(6)
-                }
+                    _ => {
+                        let header_octets = 40;
+                        let head = 8 + header_octets + 4;
+                        let tail = head + 4;
 
-                Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
-                    EkkoError::ResponseReadField("sequence number", e.to_string())
-                })?)
-            },
-            Self::V6(buffer) => {
-                let mut cursor = Cursor::new(buffer);
-                match self.get_type()? { 
-                    3 | 5 | 11 => cursor.set_position(56),
-                    _ => cursor.set_position(6),
+                        Ok(&(buffer[head .. tail]))
+                    }
                 }
-
-                Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
-                    EkkoError::ResponseReadField("sequence number", e.to_string())
-                })?)
-            },
+            }
         }
     }
 }
