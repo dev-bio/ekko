@@ -1,16 +1,13 @@
 <div align="center">
 
-# 🕊️Ekko
+<img width="200" src="https://raw.githubusercontent.com/dev-bio/Ekko/master/media/ekko.png" alt="Ekko - Echo Request Utility"/>
+
 __Echo Request Utility__
 
-<p>
-
-[![Rust](https://github.com/dev-bio/Ekko/workflows/Rust/badge.svg)](https://crates.io/crates/ekko)
 [![dependency status](https://deps.rs/crate/ekko/0.3.0/status.svg)](https://deps.rs/crate/ekko/0.3.0)
 [![Documentation](https://docs.rs/ekko/badge.svg)](https://docs.rs/ekko)
 [![License](https://img.shields.io/crates/l/ekko.svg)](https://choosealicense.com/licenses/mit/)
 
-</p>
 </div>
 
 ---
