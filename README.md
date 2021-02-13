@@ -12,7 +12,7 @@ __Echo Request Utility__
 
 ---
 
-Ekko is a simple and light utility for sending echo requests, giving you (mostly) everything you need.
+Ekko is a simple and light utility for sending echo requests synchronously, built upon raw sockets; currently in its early stages with little to no coverage.
 
 ## Usage
 To use `ekko`, add this to your `Cargo.toml`:

@@ -2,7 +2,7 @@
 name = "ekko"
 version = "0.3.0"
 authors = ["André Kristiansen"]
-description = "Ekko is a simple and light utility for sending echo requests, giving you (mostly) everything you need."
+description = "Ekko is a simple and light utility for sending echo requests synchronously, built upon raw sockets."
 repository = "https://github.com/dev-bio/ekko"
 homepage = "https://github.com/dev-bio/ekko"
 readme = "README.md"
@@ -24,6 +24,8 @@ exclude = [
     ".vscode/**",
     ".github/**", 
     ".cargo/**",
+
+    "media/**",
 ]
 
 [dependencies]
