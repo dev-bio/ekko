@@ -12,7 +12,7 @@
 //! fn main() -> Result<(), EkkoError> {
 //!     let mut ping = Ekko::with_target("rustup.rs")?;
 //! 
-//!     for hops in 0..300 {
+//!     for hops in 0..64 {
 //!         let response = ping.send(hops)?;
 //! 
 //!         match response {
