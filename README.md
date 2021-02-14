@@ -29,41 +29,43 @@ use ekko::{ error::{EkkoError},
     EkkoResponse,
     Ekko,
 };
- 
+
 fn main() -> Result<(), EkkoError> {
     let mut ping = Ekko::with_target("rustup.rs")?;
-    
-    for hops in 1..32 {
+
+    for hops in 0..300 {
         let response = ping.send(hops)?;
- 
+
         match response {
-            EkkoResponse::DestinationResponse(data) => {
-                println!("DestinationResponse: {:#?}", data);
+            EkkoResponse::Destination(data) => {
+                println!("DestinationResponse: {:?}", data);
                 break
             }
-            
-            EkkoResponse::UnreachableResponse((data, reason)) => {
-                println!("UnreachableResponse: {:#?} | {:#?}", data, reason);
+
+            EkkoResponse::Unreachable((data, reason)) => {
+                println!("UnreachableResponse: {:?} | {:?}", data, reason);
                 continue
             }
-            
-            EkkoResponse::UnexpectedResponse((data, (t, c))) => {
-                println!("UnexpectedResponse: ({}, {}), {:#?}", t, c, data);
+
+            EkkoResponse::Unexpected((data, (t, c))) => {
+                println!("UnexpectedResponse: ({}, {}), {:?}", t, c, data);
                 continue
             }
-            
-            EkkoResponse::ExceededResponse(data) => {
-                println!("ExceededResponse: {:#?}", data);
+
+            EkkoResponse::Exceeded(data) => {
+                println!("ExceededResponse: {:?}", data);
                 continue
             }
-            
-            EkkoResponse::LackingResponse(data) => {
-                println!("LackingResponse: {:#?}", data);
+
+            EkkoResponse::Lacking(data) => {
+                println!("LackingResponse: {:?}", data);
                 continue
             }
+
+            _ => continue
         }
     }
-    
+
     Ok(())
 }
 ```

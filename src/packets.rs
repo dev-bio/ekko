@@ -132,10 +132,10 @@ impl<'a> EchoResponse<'a> {
         match self {
             Self::V4(buffer) => {
                 match self.get_type()? {
-                    3 | 11 => (),
-                    _ => return Err({
+                    3 | 4 | 5 | 11 | 12 => (),
+                    x => return Err({
                         EkkoError::RequestReadField("originator", {
-                            format!("missing originator for type: {}", self.get_type()?)
+                            format!("missing originator for type: {}", x)
                         })
                     })
                 }
@@ -154,10 +154,10 @@ impl<'a> EchoResponse<'a> {
 
             Self::V6(buffer) => {
                 match self.get_type()? {
-                    1 | 3 => (),
-                    _ => return Err({
+                    1 | 2 | 3 | 4 => (),
+                    x => return Err({
                         EkkoError::RequestReadField("originator", {
-                            format!("missing originator for type: {}", self.get_type()?)
+                            format!("missing originator for type: {}", x)
                         })
                     })
                 }

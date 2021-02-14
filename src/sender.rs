@@ -30,6 +30,8 @@ use socket2::{
     Type,
 };
 
+use crate::responses::{ParameterProblem, ParameterProblemV4, ParameterProblemV6, Redirect};
+
 use super::{
 
     error::{EkkoError},
@@ -113,7 +115,7 @@ impl Ekko {
 
         loop {
             if timepoint.elapsed() > timeout {
-                break Ok(EkkoResponse::LackingResponse(EkkoData { 
+                break Ok(EkkoResponse::Lacking(EkkoData { 
                     timepoint: timepoint, 
                     elapsed: timepoint.elapsed(),
                     address: None,
@@ -156,7 +158,6 @@ impl Ekko {
                 match responding_address {
                     IpAddr::V4(_) => match response.get_type()? {
                         3 => {
-                            // ! TODO ! - Parse and include data sections ..
                             let unreachable_code = Unreachable::V4(match response.get_code()? {
                                 0  => UnreachableCodeV4::DestinationNetworkUnreachable,
                                 1  => UnreachableCodeV4::DestinationHostUnreachable,
@@ -177,7 +178,7 @@ impl Ekko {
                                 _ => UnreachableCodeV4::Unexpected(response.get_code()?),
                             });
 
-                            break Ok(EkkoResponse::UnreachableResponse((EkkoData { 
+                            break Ok(EkkoResponse::Unreachable((EkkoData { 
                                 timepoint: timepoint, 
                                 elapsed: elapsed,
                                 address: Some(responding_address),
@@ -185,8 +186,8 @@ impl Ekko {
                             }, unreachable_code)))
                         }
 
-                        11 => {
-                            break Ok(EkkoResponse::ExceededResponse(EkkoData { 
+                        4 => {
+                            break Ok(EkkoResponse::SourceQuench(EkkoData { 
                                 timepoint: timepoint, 
                                 elapsed: elapsed,
                                 address: Some(responding_address),
@@ -194,8 +195,48 @@ impl Ekko {
                             }))
                         }
 
+                        5 => {
+                            let redirect_code = match response.get_code()? {
+                                0 => Redirect::RedirectDatagramsForNetwork,
+                                1 => Redirect::RedirectDatagramsForHost,
+                                2 => Redirect::RedirectDatagramsForTypeServiceNetwork,
+                                3 => Redirect::RedirectDatagramsForTypeServiceHost,
+                                _ => Redirect::Unexpected(response.get_code()?),
+                            };
+
+                            break Ok(EkkoResponse::Redirect((EkkoData { 
+                                timepoint: timepoint, 
+                                elapsed: elapsed,
+                                address: Some(responding_address),
+                                hops: hops,
+                            }, redirect_code)))
+                        }
+
+                        11 => {
+                            break Ok(EkkoResponse::Exceeded(EkkoData { 
+                                timepoint: timepoint, 
+                                elapsed: elapsed,
+                                address: Some(responding_address),
+                                hops: hops,
+                            }))
+                        }
+
+                        12 => {
+                            let parameter_problem_code = ParameterProblem::V4(match response.get_code()? {
+                                0 => ParameterProblemV4::Pointer,
+                                _ => ParameterProblemV4::Unexpected(response.get_code()?),
+                            });
+
+                            break Ok(EkkoResponse::ParameterProblem((EkkoData { 
+                                timepoint: timepoint, 
+                                elapsed: elapsed,
+                                address: Some(responding_address),
+                                hops: hops,
+                            }, parameter_problem_code)))
+                        }
+
                         0 => {
-                            break Ok(EkkoResponse::DestinationResponse(EkkoData { 
+                            break Ok(EkkoResponse::Destination(EkkoData { 
                                 timepoint: timepoint, 
                                 elapsed: elapsed,
                                 address: Some(responding_address),
@@ -206,7 +247,7 @@ impl Ekko {
                         _ => {
                             let unexpected = (response.get_type()?, response.get_code()?);
 
-                            break Ok(EkkoResponse::UnexpectedResponse((EkkoData { 
+                            break Ok(EkkoResponse::Unexpected((EkkoData { 
                                 timepoint: timepoint, 
                                 elapsed: elapsed,
                                 address: Some(responding_address),
@@ -217,7 +258,6 @@ impl Ekko {
 
                     IpAddr::V6(_) => match response.get_type()? {
                         1 => {
-                            // ! TODO ! - Parse and include data sections ..
                             let unreachable_code = Unreachable::V6(match response.get_code()? {
                                 0 => UnreachableCodeV6::NoRouteToDestination,
                                 1 => UnreachableCodeV6::CommunicationWithDestinationAdministrativelyProhibited,
@@ -230,7 +270,7 @@ impl Ekko {
                                 _ => UnreachableCodeV6::Unexpected(response.get_code()?),
                             });
 
-                            break Ok(EkkoResponse::UnreachableResponse((EkkoData { 
+                            break Ok(EkkoResponse::Unreachable((EkkoData { 
                                 timepoint: timepoint, 
                                 elapsed: elapsed,
                                 address: Some(responding_address),
@@ -238,8 +278,8 @@ impl Ekko {
                             }, unreachable_code)))
                         }
 
-                        3 => {
-                            break Ok(EkkoResponse::ExceededResponse(EkkoData { 
+                        2 => {
+                            break Ok(EkkoResponse::PacketTooBig(EkkoData { 
                                 timepoint: timepoint, 
                                 elapsed: elapsed,
                                 address: Some(responding_address),
@@ -247,8 +287,33 @@ impl Ekko {
                             }))
                         }
 
+                        3 => {
+                            break Ok(EkkoResponse::Exceeded(EkkoData { 
+                                timepoint: timepoint, 
+                                elapsed: elapsed,
+                                address: Some(responding_address),
+                                hops: hops,
+                            }))
+                        }
+
+                        4 => {
+                            let parameter_problem_code = ParameterProblem::V6(match response.get_code()? {
+                                0 => ParameterProblemV6::ErroneousHeaderField,
+                                1 => ParameterProblemV6::UnrecognizedNextHeaderType,
+                                2 => ParameterProblemV6::UnrecognizedOption,
+                                _ => ParameterProblemV6::Unexpected(response.get_code()?),
+                            });
+
+                            break Ok(EkkoResponse::ParameterProblem((EkkoData { 
+                                timepoint: timepoint, 
+                                elapsed: elapsed,
+                                address: Some(responding_address),
+                                hops: hops,
+                            }, parameter_problem_code)))
+                        }
+
                         129 => {
-                            break Ok(EkkoResponse::DestinationResponse(EkkoData { 
+                            break Ok(EkkoResponse::Destination(EkkoData { 
                                 timepoint: timepoint, 
                                 elapsed: elapsed,
                                 address: Some(responding_address),
@@ -259,7 +324,7 @@ impl Ekko {
                         _ => {
                             let unexpected = (response.get_type()?, response.get_code()?);
 
-                            break Ok(EkkoResponse::UnexpectedResponse((EkkoData { 
+                            break Ok(EkkoResponse::Unexpected((EkkoData { 
                                 timepoint: timepoint, 
                                 elapsed: elapsed,
                                 address: Some(responding_address),
@@ -269,7 +334,7 @@ impl Ekko {
                     }
                 }
             } else {
-                break Ok(EkkoResponse::LackingResponse(EkkoData { 
+                break Ok(EkkoResponse::Lacking(EkkoData { 
                     timepoint: timepoint, 
                     elapsed: timepoint.elapsed(),
                     address: None,

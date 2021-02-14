@@ -49,6 +49,35 @@ pub enum Unreachable {
     V6(UnreachableCodeV6),
 }
 
+#[derive(Clone, Debug)]
+pub enum ParameterProblemV4 {
+    Pointer,
+    Unexpected(u8),
+}
+
+#[derive(Clone, Debug)]
+pub enum ParameterProblemV6 {
+    UnrecognizedNextHeaderType,
+    ErroneousHeaderField,
+    UnrecognizedOption,
+    Unexpected(u8),
+}
+
+#[derive(Clone, Debug)]
+pub enum ParameterProblem {
+    V4(ParameterProblemV4),
+    V6(ParameterProblemV6),
+}
+
+#[derive(Clone, Debug)]
+pub enum Redirect {
+    RedirectDatagramsForTypeServiceNetwork,
+    RedirectDatagramsForTypeServiceHost,
+    RedirectDatagramsForNetwork,
+    RedirectDatagramsForHost,
+    Unexpected(u8),
+}
+
 #[derive(Clone, Debug, Eq)]
 pub struct EkkoData{
     pub timepoint: Instant, 
@@ -78,9 +107,13 @@ impl PartialEq for EkkoData {
 
 #[derive(Clone, Debug)]
 pub enum EkkoResponse {
-    DestinationResponse(EkkoData),
-    UnreachableResponse((EkkoData, Unreachable)),
-    UnexpectedResponse((EkkoData, (u8, u8))),
-    ExceededResponse(EkkoData),
-    LackingResponse(EkkoData),
+    ParameterProblem((EkkoData, ParameterProblem)),
+    Unreachable((EkkoData, Unreachable)),
+    PacketTooBig(EkkoData),
+    SourceQuench(EkkoData),
+    Destination(EkkoData),
+    Unexpected((EkkoData, (u8, u8))),
+    Redirect((EkkoData, Redirect)),
+    Exceeded(EkkoData),
+    Lacking(EkkoData),
 }
