@@ -132,12 +132,12 @@ impl<'a> EchoResponse<'a> {
         match self {
             Self::V4(buffer) => {
                 match self.get_type()? {
-                    x if x == 0 => return Err({
+                    3 | 11 => (),
+                    _ => return Err({
                         EkkoError::RequestReadField("originator", {
-                            format!("missing originator for type: {}", x)
+                            format!("missing originator for type: {}", self.get_type()?)
                         })
-                    }),
-                    _ => ()
+                    })
                 }
 
                 let mut cursor = Cursor::new(buffer);
@@ -154,12 +154,12 @@ impl<'a> EchoResponse<'a> {
 
             Self::V6(buffer) => {
                 match self.get_type()? {
-                    x if x == 129 => return Err({
+                    1 | 3 => (),
+                    _ => return Err({
                         EkkoError::RequestReadField("originator", {
-                            format!("missing originator for type: {}", x)
+                            format!("missing originator for type: {}", self.get_type()?)
                         })
-                    }),
-                    _ => ()
+                    })
                 }
 
                 Ok(EchoRequest::V6({
