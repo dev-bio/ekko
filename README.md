@@ -1,6 +1,6 @@
 <div align="center">
 
-<img width="200" src="https://raw.githubusercontent.com/dev-bio/Ekko/master/media/ekko.png" alt="Ekko - Echo Request Utility"/>
+<img width="200" src="https://raw.githubusercontent.com/dev-bio/Ekko/master/media/ekko.svg" alt="Ekko - Echo Request Utility"/>
 
 __Echo Request Utility__
 
