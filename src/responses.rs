@@ -121,13 +121,18 @@ pub enum EkkoResponse {
 }
 
 impl EkkoResponse {
-    pub fn new(address: IpAddr, hops: u32, response_type: u8, response_code: u8, timepoint: Instant, elapsed: Duration) -> Result<Self, EkkoError> {
+    pub (crate) fn new(net: (IpAddr, u32), detail: (u8, u8), time: (Instant, Duration)) -> Result<Self, EkkoError> {
+        let (echo_type, echo_code) = detail;
+        let (timepoint, elapsed) = time;
+        let (address, hops) = net;
+
         match address {
-            IpAddr::V4(_) => match response_type {
+            
+            IpAddr::V4(_) => match echo_type {
 
                 3 => {
 
-                    let unreachable_code = Unreachable::V4(match response_code {
+                    let unreachable_code = Unreachable::V4(match echo_code {
                         0  => UnreachableCodeV4::DestinationNetworkUnreachable,
                         1  => UnreachableCodeV4::DestinationHostUnreachable,
                         2  => UnreachableCodeV4::DestinationProtocolUnreachable,
@@ -144,98 +149,98 @@ impl EkkoResponse {
                         13 => UnreachableCodeV4::CommunicationAdministrativelyProhibited,
                         14 => UnreachableCodeV4::HostPrecedenceViolation,
                         15 => UnreachableCodeV4::PrecedenceCutoff,
-                        _ => UnreachableCodeV4::Unexpected(response_code),
+                        _ => UnreachableCodeV4::Unexpected(echo_code),
                     });
 
                     Ok(EkkoResponse::Unreachable((EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: elapsed,
+                        timepoint, 
+                        elapsed,
                         address: Some(address),
-                        hops: hops,
+                        hops,
                     }, unreachable_code)))
                 }
 
                 4 => {
 
                     Ok(EkkoResponse::SourceQuench(EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: elapsed,
+                        timepoint, 
+                        elapsed,
                         address: Some(address),
-                        hops: hops,
+                        hops,
                     }))
                 }
 
                 5 => {
 
-                    let redirect_code = match response_code {
+                    let redirect_code = match echo_code {
                         0 => Redirect::RedirectDatagramsForNetwork,
                         1 => Redirect::RedirectDatagramsForHost,
                         2 => Redirect::RedirectDatagramsForTypeServiceNetwork,
                         3 => Redirect::RedirectDatagramsForTypeServiceHost,
-                        _ => Redirect::Unexpected(response_code),
+                        _ => Redirect::Unexpected(echo_code),
                     };
 
                     Ok(EkkoResponse::Redirect((EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: elapsed,
+                        timepoint, 
+                        elapsed,
                         address: Some(address),
-                        hops: hops,
+                        hops,
                     }, redirect_code)))
                 }
 
                 11 => {
 
                     Ok(EkkoResponse::Exceeded(EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: elapsed,
+                        timepoint, 
+                        elapsed,
                         address: Some(address),
-                        hops: hops,
+                        hops,
                     }))
                 }
 
                 12 => {
                     
-                    let parameter_problem_code = ParameterProblem::V4(match response_code {
+                    let parameter_problem_code = ParameterProblem::V4(match echo_code {
                         0 => ParameterProblemV4::Pointer,
-                        _ => ParameterProblemV4::Unexpected(response_code),
+                        _ => ParameterProblemV4::Unexpected(echo_code),
                     });
 
                     Ok(EkkoResponse::ParameterProblem((EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: elapsed,
+                        timepoint, 
+                        elapsed,
                         address: Some(address),
-                        hops: hops,
+                        hops,
                     }, parameter_problem_code)))
                 }
 
                 0 => {
 
                     Ok(EkkoResponse::Destination(EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: elapsed,
+                        timepoint, 
+                        elapsed,
                         address: Some(address),
-                        hops: hops,
+                        hops,
                     }))
                 }
 
                 _ => {
 
-                    let unexpected = (response_type, response_code);
+                    let unexpected = (echo_type, echo_code);
 
                     Ok(EkkoResponse::Unexpected((EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: elapsed,
+                        timepoint, 
+                        elapsed,
                         address: Some(address),
-                        hops: hops,
+                        hops,
                     }, unexpected)))
                 }
             }
 
-            IpAddr::V6(_) => match response_type {
+            IpAddr::V6(_) => match echo_type {
 
                 1 => {
 
-                    let unreachable_code = Unreachable::V6(match response_code {
+                    let unreachable_code = Unreachable::V6(match echo_code {
                         0 => UnreachableCodeV6::NoRouteToDestination,
                         1 => UnreachableCodeV6::CommunicationWithDestinationAdministrativelyProhibited,
                         2 => UnreachableCodeV6::BeyondScopeOfSourceAddress,
@@ -244,73 +249,73 @@ impl EkkoResponse {
                         5 => UnreachableCodeV6::SourceAddressFailedIngressEgressPolicy,
                         6 => UnreachableCodeV6::RejectRouteToDestination,
                         7 => UnreachableCodeV6::ErrorInSourceRoutingHeader,
-                        _ => UnreachableCodeV6::Unexpected(response_code),
+                        _ => UnreachableCodeV6::Unexpected(echo_code),
                     });
 
                     Ok(EkkoResponse::Unreachable((EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: elapsed,
+                        timepoint, 
+                        elapsed,
                         address: Some(address),
-                        hops: hops,
+                        hops,
                     }, unreachable_code)))
                 }
 
                 2 => {
 
                     Ok(EkkoResponse::PacketTooBig(EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: elapsed,
+                        timepoint, 
+                        elapsed,
                         address: Some(address),
-                        hops: hops,
+                        hops,
                     }))
                 }
 
                 3 => {
 
                     Ok(EkkoResponse::Exceeded(EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: elapsed,
+                        timepoint, 
+                        elapsed,
                         address: Some(address),
-                        hops: hops,
+                        hops,
                     }))
                 }
 
                 4 => {
 
-                    let parameter_problem_code = ParameterProblem::V6(match response_code {
+                    let parameter_problem_code = ParameterProblem::V6(match echo_code {
                         0 => ParameterProblemV6::ErroneousHeaderField,
                         1 => ParameterProblemV6::UnrecognizedNextHeaderType,
                         2 => ParameterProblemV6::UnrecognizedOption,
-                        _ => ParameterProblemV6::Unexpected(response_code),
+                        _ => ParameterProblemV6::Unexpected(echo_code),
                     });
 
                     Ok(EkkoResponse::ParameterProblem((EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: elapsed,
+                        timepoint, 
+                        elapsed,
                         address: Some(address),
-                        hops: hops,
+                        hops,
                     }, parameter_problem_code)))
                 }
 
                 129 => {
 
                     Ok(EkkoResponse::Destination(EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: elapsed,
+                        timepoint, 
+                        elapsed,
                         address: Some(address),
-                        hops: hops,
+                        hops,
                     }))
                 }
 
                 _ => {
 
-                    let unexpected = (response_type, response_code);
+                    let unexpected = (echo_type, echo_code);
 
                     Ok(EkkoResponse::Unexpected((EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: elapsed,
+                        timepoint, 
+                        elapsed,
                         address: Some(address),
-                        hops: hops,
+                        hops,
                     }, unexpected)))
                 }
             }

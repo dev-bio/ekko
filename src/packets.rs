@@ -25,6 +25,7 @@ pub(crate) enum EchoResponse<'a> {
 impl<'a> EchoResponse<'a> {
     pub fn get_type(&self) -> Result<u8, EkkoError> {
         match self {
+
             Self::V4(buffer) | Self::V6(buffer) => {
                 let mut cursor = Cursor::new(buffer);
                 cursor.set_position(0);
@@ -37,6 +38,7 @@ impl<'a> EchoResponse<'a> {
 
     pub fn get_code(&self) -> Result<u8, EkkoError> {
         match self {
+
             Self::V4(buffer) | Self::V6(buffer) => {
                 let mut cursor = Cursor::new(buffer);
                 cursor.set_position(1);
@@ -49,6 +51,7 @@ impl<'a> EchoResponse<'a> {
 
     pub fn get_checksum(&self) -> Result<u16, EkkoError> {
         match self {
+
             Self::V4(buffer) | Self::V6(buffer) => {
                 let mut cursor = Cursor::new(buffer);
                 cursor.set_position(2);
@@ -61,9 +64,12 @@ impl<'a> EchoResponse<'a> {
 
     pub fn get_identifier(&self) -> Result<u16, EkkoError> {
         match self {
+
             Self::V4(buffer) => {
                 match self.get_type()? {
+
                     0 => {
+                        
                         let mut cursor = Cursor::new(buffer);
                         cursor.set_position(4);
                         Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
@@ -78,7 +84,9 @@ impl<'a> EchoResponse<'a> {
 
             Self::V6(buffer) => {
                 match self.get_type()? {
+
                     129 => {
+
                         let mut cursor = Cursor::new(buffer);
                         cursor.set_position(4);
                         Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
@@ -95,9 +103,12 @@ impl<'a> EchoResponse<'a> {
 
     pub fn get_sequence(&self) -> Result<u16, EkkoError> {
         match self {
+
             Self::V4(buffer) => {
                 match self.get_type()? {
+
                     0 => {
+
                         let mut cursor = Cursor::new(buffer);
                         cursor.set_position(6);
                         Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
@@ -112,7 +123,9 @@ impl<'a> EchoResponse<'a> {
 
             Self::V6(buffer) => {
                 match self.get_type()? {
+
                     129 => {
+
                         let mut cursor = Cursor::new(buffer);
                         cursor.set_position(6);
                         Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
@@ -129,9 +142,12 @@ impl<'a> EchoResponse<'a> {
 
     pub fn get_originator(&self) -> Result<EchoRequest<'a>, EkkoError> {
         match self {
+
             Self::V4(buffer) => {
                 match self.get_type()? {
+
                     3 | 4 | 5 | 11 | 12 => (),
+
                     x => return Err({
                         EkkoError::RequestReadField("originator", {
                             format!("missing originator for type: {}", x)
@@ -153,7 +169,9 @@ impl<'a> EchoResponse<'a> {
 
             Self::V6(buffer) => {
                 match self.get_type()? {
+
                     1 | 2 | 3 | 4 => (),
+
                     x => return Err({
                         EkkoError::RequestReadField("originator", {
                             format!("missing originator for type: {}", x)
@@ -192,9 +210,11 @@ impl<'a> EchoRequest<'a> {
 
         fn checksum_v4(data: &[u8]) -> u16 {
             let mut sum: u32 = data.chunks(2).map(|chunk| match chunk {
+
                 &[a, b, ..] => u16::from_be_bytes([a, b]) as u32,
                 &[.., a] => ((a as u32) << 8),
                 &[..] => 0 as u32,
+
             }).sum();
         
             while sum >> 16 != 0 {
@@ -251,9 +271,11 @@ impl<'a> EchoRequest<'a> {
             }
         
             let mut sum: u32 = data.chunks(2).map(|chunk| match chunk {
+
                 &[a, b, ..] => u16::from_be_bytes([a, b]) as u32,
                 &[.., a] => ((a as u32) << 8),
                 &[..] => 0 as u32,
+
             }).sum();
             
             sum += sum_segments(src);
@@ -306,12 +328,14 @@ impl<'a> EchoRequest<'a> {
 
     pub fn as_slice(&self) -> &'a [u8] {
         match self {
+
             Self::V4(buffer) | Self::V6(buffer) => buffer
         }
     }
 
     pub fn get_type(&self) -> Result<u8, EkkoError> {
         match self {
+
             Self::V4(buffer) | Self::V6(buffer) => {
                 let mut cursor = Cursor::new(buffer);
                 cursor.set_position(0);
@@ -324,6 +348,7 @@ impl<'a> EchoRequest<'a> {
 
     pub fn get_code(&self) -> Result<u8, EkkoError> {
         match self {
+
             Self::V4(buffer) | Self::V6(buffer) => {
                 let mut cursor = Cursor::new(buffer);
                 cursor.set_position(1);
@@ -336,6 +361,7 @@ impl<'a> EchoRequest<'a> {
 
     pub fn get_checksum(&self) -> Result<u16, EkkoError> {
         match self {
+
             Self::V4(buffer) | Self::V6(buffer) => {
                 let mut cursor = Cursor::new(buffer);
                 cursor.set_position(2);
@@ -348,6 +374,7 @@ impl<'a> EchoRequest<'a> {
 
     pub fn get_identifier(&self) -> Result<u16, EkkoError> {
         match self {
+
             Self::V4(buffer) | Self::V6(buffer) => {
                 let mut cursor = Cursor::new(buffer);
                 cursor.set_position(4);
@@ -360,6 +387,7 @@ impl<'a> EchoRequest<'a> {
 
     pub fn get_sequence(&self) -> Result<u16, EkkoError> {
         match self {
+
             Self::V4(buffer) | Self::V6(buffer) => {
                 let mut cursor = Cursor::new(buffer);
                 cursor.set_position(6);

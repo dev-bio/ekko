@@ -12,34 +12,29 @@
 //! fn main() -> Result<(), EkkoError> {
 //!     let mut ping = Ekko::with_target("rustup.rs")?;
 //! 
-//!     for response in ping.trace(0..64)? {
-//!         match response {
+//!     // Send single ..
+//!     for hop in 0..64 {
+//!         match ping.send(hop)? {
+//! 
 //!             EkkoResponse::Destination(data) => {
-//!                 println!("DestinationResponse: {:?}", data);
+//!                 println!("{:?}", EkkoResponse::Destination(data));
 //!                 break
 //!             }
 //! 
-//!             EkkoResponse::Unreachable((data, reason)) => {
-//!                 println!("UnreachableResponse: {:?} | {:?}", data, reason);
-//!                 continue
+//!             x => println!("{:?}", x)
+//!         }
+//!     }
+//! 
+//!     // Send batch ..
+//!     for response in ping.trace(0..64)? {
+//!         match response {
+//! 
+//!             EkkoResponse::Destination(data) => {
+//!                 println!("{:?}", EkkoResponse::Destination(data));
+//!                 break
 //!             }
 //! 
-//!             EkkoResponse::Unexpected((data, (t, c))) => {
-//!                 println!("UnexpectedResponse: ({}, {}), {:?}", t, c, data);
-//!                 continue
-//!             }
-//! 
-//!             EkkoResponse::Exceeded(data) => {
-//!                 println!("ExceededResponse: {:?}", data);
-//!                 continue
-//!             }
-//! 
-//!             EkkoResponse::Lacking(data) => {
-//!                 println!("LackingResponse: {:?}", data);
-//!                 continue
-//!             }
-//! 
-//!             _ => continue
+//!             x => println!("{:?}", x)
 //!         }
 //!     }
 //! 
