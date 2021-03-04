@@ -46,13 +46,21 @@ mod responses;
 mod packets;
 mod sender;
 
+pub use sender::{Ekko};
 pub mod error;
 
-pub use sender::{Ekko};
 pub use responses::{
-    EkkoResponse,
-    EkkoData,
-    Unreachable,
+
     UnreachableCodeV6,
     UnreachableCodeV4,
+    Unreachable,
+
+    ParameterProblemV6,
+    ParameterProblemV4,
+    ParameterProblem,
+
+    Redirect,
+
+    EkkoResponse,
+    EkkoData,
 };
