@@ -20,6 +20,8 @@ pub enum EkkoError {
     SocketIpMismatch { src: String, tgt: String },
     #[error("Could not set sockets receive buffer size, reason: {0}")]
     SocketSetReceiveBufferSize(String),
+    #[error("Socket failed setting non-blocking to {0}, reason: {1}")]
+    SocketSetNonBlocking(bool, String),
     #[error("Could not set sockets read timeout, reason: {0}")]
     SocketSetReadTimeout(String),
     #[error("Could not set socket max hops, reason: {0}")]

@@ -7,7 +7,6 @@ use std::{
     },
 
     io::{Cursor}, 
-    
 };
 
 use super::error::{EkkoError};
@@ -94,7 +93,7 @@ impl<'a> EchoResponse<'a> {
         }
     }
 
-    pub fn get_sequence_number(&self) -> Result<u16, EkkoError> {
+    pub fn get_sequence(&self) -> Result<u16, EkkoError> {
         match self {
             Self::V4(buffer) => {
                 match self.get_type()? {
@@ -107,7 +106,7 @@ impl<'a> EchoResponse<'a> {
                     }
 
                     _ => self.get_originator()?
-                        .get_sequence_number()
+                        .get_sequence()
                 }
             }
 
@@ -122,7 +121,7 @@ impl<'a> EchoResponse<'a> {
                     }
 
                     _ => self.get_originator()?
-                        .get_sequence_number()
+                        .get_sequence()
                 }
             }
         }
@@ -174,7 +173,7 @@ impl<'a> Debug for EchoResponse<'a> {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> FmtResult {
         fmt.debug_struct("EchoResponse")
             .field("identifier", &(self.get_identifier()))
-            .field("sequence", &(self.get_sequence_number()))
+            .field("sequence", &(self.get_sequence()))
             .field("checksum", &(self.get_checksum()))
             .field("type", &(self.get_type()))
             .field("code", &(self.get_code()))
@@ -359,7 +358,7 @@ impl<'a> EchoRequest<'a> {
         }
     }
 
-    pub fn get_sequence_number(&self) -> Result<u16, EkkoError> {
+    pub fn get_sequence(&self) -> Result<u16, EkkoError> {
         match self {
             Self::V4(buffer) | Self::V6(buffer) => {
                 let mut cursor = Cursor::new(buffer);
@@ -376,7 +375,7 @@ impl<'a> Debug for EchoRequest<'a> {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> FmtResult {
         fmt.debug_struct("EchoRequest")
             .field("identifier", &(self.get_identifier()))
-            .field("sequence", &(self.get_sequence_number()))
+            .field("sequence", &(self.get_sequence()))
             .field("checksum", &(self.get_checksum()))
             .field("type", &(self.get_type()))
             .field("code", &(self.get_code()))

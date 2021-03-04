@@ -1,5 +1,7 @@
 use std::{
 
+    io::{Cursor}, 
+
     net::{
         ToSocketAddrs,
         SocketAddrV6, 
@@ -13,12 +15,12 @@ use std::{
         IpAddr, 
     }, 
     
+    ops::{Range}, 
+    
     time::{
         Duration, 
         Instant,
-    },
-
-    io::{Cursor}, 
+    }
 };
 
 use byteorder::{ReadBytesExt};
@@ -29,8 +31,6 @@ use socket2::{
     Socket, 
     Type,
 };
-
-use crate::responses::{ParameterProblem, ParameterProblemV4, ParameterProblemV6, Redirect};
 
 use super::{
 
@@ -44,16 +44,13 @@ use super::{
     responses::{
         EkkoResponse,
         EkkoData,
-        Unreachable,
-        UnreachableCodeV6,
-        UnreachableCodeV4,
     },
 };
 
 pub struct Ekko {
     source_socket_address: SocketAddr,
     target_socket_address: SocketAddr,
-    sequence_number: u16,
+    sequence: u16,
     identifier: u16,
     buffer_receive: Vec<u8>,
     buffer_send: Vec<u8>,
@@ -61,59 +58,36 @@ pub struct Ekko {
 }
 
 impl Ekko {
-    /// Send an echo request with a default timeout of 100 milliseconds ..
+    /// Send an echo request with a default timeout of 1000 milliseconds ..
     pub fn send(&mut self, hops: u32) -> Result<EkkoResponse, EkkoError> {
-        self.send_with_timeout(hops, Duration::from_millis(100))
+        self.send_with_timeout(hops, Duration::from_millis(1000))
     }
 
-    /// Send an echo request with or without a timeout ..
+    /// Send an echo request with or with a specified timeout ..
     pub fn send_with_timeout(&mut self, hops: u32, timeout: Duration) -> Result<EkkoResponse, EkkoError> {
-        let sequence_number = self.sequence_number;
-        let identifier = self.identifier;
-        
         let timepoint = Instant::now();
-        match (self.source_socket_address, self.target_socket_address) {
-            (SocketAddr::V6(source), SocketAddr::V6(target)) => {
-                self.socket.set_unicast_hops_v6(hops).map_err(|e| {
-                    EkkoError::SocketSetMaxHopsIpv6(e.to_string())
-                })?;
+        self.raw_send(hops, self.sequence, self.identifier)?;
+        let sequence = self.sequence;
 
-                self.buffer_send.resize(64, 0);
-                let request = EchoRequest::new_ipv6(self.buffer_send.as_mut_slice(), identifier, sequence_number, &(source.ip().segments()), &(target.ip().segments()))?;
-                self.socket.send_to(request.as_slice(), &(target.into())).map_err(|e| {
-                    EkkoError::SocketSend(e.to_string())
-                })?;
-            },
-            (SocketAddr::V4(_), SocketAddr::V4(target)) => {
-                self.socket.set_ttl(hops).map_err(|e| {
-                    EkkoError::SocketSetMaxHopsIpv4(e.to_string())
-                })?;
-
-                self.buffer_send.resize(64, 0);
-                let request = EchoRequest::new_ipv4(self.buffer_send.as_mut_slice(), identifier, sequence_number)?;
-                self.socket.send_to(request.as_slice(), &(target.into())).map_err(|e| {
-                    EkkoError::SocketSend(e.to_string())
-                })?;
-            },
-            (SocketAddr::V4(source), SocketAddr::V6(target)) => {
-                return Err(EkkoError::SocketIpMismatch { 
-                    src: source.to_string(), 
-                    tgt: target.to_string() 
-                })
-            },
-            (SocketAddr::V6(source), SocketAddr::V4(target)) => {
-                return Err(EkkoError::SocketIpMismatch { 
-                    src: source.to_string(), 
-                    tgt: target.to_string() 
-                })
-            },
-        };
-
-        self.sequence_number = {
-            self.sequence_number.wrapping_add(1)
+        self.sequence = {
+            self.sequence.wrapping_add(1)
         };
 
         loop {
+
+            let identifier = self.identifier;
+            if let Some((address, response)) = self.raw_recv()? {
+                if identifier == response.get_identifier()? {
+                    if sequence == response.get_sequence()? {
+                        break EkkoResponse::new(address, hops, 
+                            response.get_type()?, 
+                            response.get_code()?, 
+                            timepoint.clone(), 
+                            timepoint.elapsed());
+                    }
+                }
+            }
+
             if timepoint.elapsed() > timeout {
                 break Ok(EkkoResponse::Lacking(EkkoData { 
                     timepoint: timepoint, 
@@ -122,225 +96,86 @@ impl Ekko {
                     hops: hops,
                 }))
             }
+        }
+    }
 
-            self.socket.set_read_timeout(Some(timeout - timepoint.elapsed())).map_err(|e| {
-                EkkoError::SocketSetReadTimeout(e.to_string())
-            })?;
+    /// Trace route with a default timeout of 1000 milliseconds ..
+    pub fn trace(&mut self, hops: Range<u32>) -> Result<Vec<EkkoResponse>, EkkoError> {
+        self.trace_with_timeout(hops, Duration::from_millis(1000))
+    }
 
-            self.buffer_receive.resize(512, 0);
-            if let Ok((_, responder)) = self.socket.recv_from(self.buffer_receive.as_mut_slice()) {
-                let responding_address = match self.source_socket_address {
-                    SocketAddr::V6(_) => IpAddr::V6(responder.as_inet6()
-                        .ok_or(EkkoError::SocketReceiveNoIpv6)?.ip().clone()),
-                    SocketAddr::V4(_) => IpAddr::V4(responder.as_inet()
-                        .ok_or(EkkoError::SocketReceiveNoIpv4)?.ip().clone()),
-                };
+    /// Trace route with specified timeout ..
+    pub fn trace_with_timeout(&mut self, hops: Range<u32>, timeout: Duration) -> Result<Vec<EkkoResponse>, EkkoError> {
+        let mut echo_requests = Vec::new();
+        let mut echo_responses = Vec::new();
+        
+        let timepoint = Instant::now();
+        
+        for hop in hops {        
+            self.raw_send(hop, self.sequence, self.identifier)?;
+            echo_requests.push({
+                (Instant::now(), self.sequence, hop)
+            });
 
-                let mut cursor = Cursor::new(self.buffer_receive.as_slice());
-                let header_octets = ((cursor.read_u8().map_err(|e| {
-                    EkkoError::ResponseReadField("internet protocol header size", e.to_string())
-                })? & 0x0F) * 4) as usize;
+            self.sequence = {
+                self.sequence.wrapping_add(1)
+            };
+        }
 
-                let elapsed = timepoint.elapsed();
-                let response = match responding_address {
-                    IpAddr::V4(_) => EchoResponse::V4(&self.buffer_receive[header_octets..]),
-                    IpAddr::V6(_) => EchoResponse::V6(&self.buffer_receive[..]),
-                };
+        let mut route = Vec::new();
 
-                if identifier != response.get_identifier()? { 
-                    continue 
-                }
+        loop {
 
-                if sequence_number != response.get_sequence_number()? { 
-                    continue 
-                }
-
-                match responding_address {
-                    IpAddr::V4(_) => match response.get_type()? {
-                        3 => {
-                            let unreachable_code = Unreachable::V4(match response.get_code()? {
-                                0  => UnreachableCodeV4::DestinationNetworkUnreachable,
-                                1  => UnreachableCodeV4::DestinationHostUnreachable,
-                                2  => UnreachableCodeV4::DestinationProtocolUnreachable,
-                                3  => UnreachableCodeV4::DestinationPortUnreachable,
-                                4  => UnreachableCodeV4::FragmentationRequired,
-                                5  => UnreachableCodeV4::SourceRouteFailed,
-                                6  => UnreachableCodeV4::DestinationNetworkUnknown,
-                                7  => UnreachableCodeV4::DestinationHostUnknown,
-                                8  => UnreachableCodeV4::SourceHostIsolated,
-                                9  => UnreachableCodeV4::NetworkAdministrativelyProhibited,
-                                10 => UnreachableCodeV4::HostAdministrativelyProhibited,
-                                11 => UnreachableCodeV4::NetworkUnreachable,
-                                12 => UnreachableCodeV4::HostUnreachable,
-                                13 => UnreachableCodeV4::CommunicationAdministrativelyProhibited,
-                                14 => UnreachableCodeV4::HostPrecedenceViolation,
-                                15 => UnreachableCodeV4::PrecedenceCutoff,
-                                _ => UnreachableCodeV4::Unexpected(response.get_code()?),
-                            });
-
-                            break Ok(EkkoResponse::Unreachable((EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }, unreachable_code)))
-                        }
-
-                        4 => {
-                            break Ok(EkkoResponse::SourceQuench(EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }))
-                        }
-
-                        5 => {
-                            let redirect_code = match response.get_code()? {
-                                0 => Redirect::RedirectDatagramsForNetwork,
-                                1 => Redirect::RedirectDatagramsForHost,
-                                2 => Redirect::RedirectDatagramsForTypeServiceNetwork,
-                                3 => Redirect::RedirectDatagramsForTypeServiceHost,
-                                _ => Redirect::Unexpected(response.get_code()?),
-                            };
-
-                            break Ok(EkkoResponse::Redirect((EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }, redirect_code)))
-                        }
-
-                        11 => {
-                            break Ok(EkkoResponse::Exceeded(EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }))
-                        }
-
-                        12 => {
-                            let parameter_problem_code = ParameterProblem::V4(match response.get_code()? {
-                                0 => ParameterProblemV4::Pointer,
-                                _ => ParameterProblemV4::Unexpected(response.get_code()?),
-                            });
-
-                            break Ok(EkkoResponse::ParameterProblem((EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }, parameter_problem_code)))
-                        }
-
-                        0 => {
-                            break Ok(EkkoResponse::Destination(EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }))
-                        }
-
-                        _ => {
-                            let unexpected = (response.get_type()?, response.get_code()?);
-
-                            break Ok(EkkoResponse::Unexpected((EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }, unexpected)))
-                        }
+            let identifier = self.identifier;
+            if let Some((address, response)) = self.raw_recv()? {
+                for (instant, sequence, _) in &(echo_requests) {
+                    match (sequence.clone(), identifier.clone()) {
+                        x if x == (response.get_sequence()?, response.get_identifier()?) => echo_responses.push({
+                            (address, instant.elapsed(), response.get_type()?, response.get_code()?, response.get_sequence()?)
+                        }),
+                        
+                        _ => continue
                     }
 
-                    IpAddr::V6(_) => match response.get_type()? {
-                        1 => {
-                            let unreachable_code = Unreachable::V6(match response.get_code()? {
-                                0 => UnreachableCodeV6::NoRouteToDestination,
-                                1 => UnreachableCodeV6::CommunicationWithDestinationAdministrativelyProhibited,
-                                2 => UnreachableCodeV6::BeyondScopeOfSourceAddress,
-                                3 => UnreachableCodeV6::AddressUnreachable,
-                                4 => UnreachableCodeV6::PortUnreachable,
-                                5 => UnreachableCodeV6::SourceAddressFailedIngressEgressPolicy,
-                                6 => UnreachableCodeV6::RejectRouteToDestination,
-                                7 => UnreachableCodeV6::ErrorInSourceRoutingHeader,
-                                _ => UnreachableCodeV6::Unexpected(response.get_code()?),
-                            });
-
-                            break Ok(EkkoResponse::Unreachable((EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }, unreachable_code)))
-                        }
-
-                        2 => {
-                            break Ok(EkkoResponse::PacketTooBig(EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }))
-                        }
-
-                        3 => {
-                            break Ok(EkkoResponse::Exceeded(EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }))
-                        }
-
-                        4 => {
-                            let parameter_problem_code = ParameterProblem::V6(match response.get_code()? {
-                                0 => ParameterProblemV6::ErroneousHeaderField,
-                                1 => ParameterProblemV6::UnrecognizedNextHeaderType,
-                                2 => ParameterProblemV6::UnrecognizedOption,
-                                _ => ParameterProblemV6::Unexpected(response.get_code()?),
-                            });
-
-                            break Ok(EkkoResponse::ParameterProblem((EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }, parameter_problem_code)))
-                        }
-
-                        129 => {
-                            break Ok(EkkoResponse::Destination(EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }))
-                        }
-
-                        _ => {
-                            let unexpected = (response.get_type()?, response.get_code()?);
-
-                            break Ok(EkkoResponse::Unexpected((EkkoData { 
-                                timepoint: timepoint, 
-                                elapsed: elapsed,
-                                address: Some(responding_address),
-                                hops: hops,
-                            }, unexpected)))
-                        }
-                    }
+                    break
                 }
-            } else {
-                break Ok(EkkoResponse::Lacking(EkkoData { 
-                    timepoint: timepoint, 
-                    elapsed: timepoint.elapsed(),
-                    address: None,
-                    hops: hops,
-                }))
             }
+
+            if (echo_requests.len() - echo_responses.len()) > 0 {
+                if timepoint.elapsed() < timeout {
+                    continue
+                }
+            }
+            
+            for (timepoint, requesting_sequence, hops) in echo_requests {
+                let previous = route.len();
+                for (address, elapsed, response_type, response_code, response_sequence) in &(echo_responses) {
+                    match &(requesting_sequence) {
+                        x if x == response_sequence => route.push({
+                            EkkoResponse::new(address.clone(), hops.clone(), 
+                                response_type.clone(), 
+                                response_code.clone(), 
+                                timepoint.clone(), 
+                                elapsed.clone())?
+                        }),
+
+                        _ => continue
+                    }
+
+                    break
+                }
+
+                if previous < route.len() { continue } else {
+                    route.push(EkkoResponse::Lacking(EkkoData { 
+                        timepoint: timepoint, 
+                        elapsed: timepoint.elapsed(),
+                        address: None,
+                        hops: hops,
+                    }));
+                }
+            }
+
+            break Ok(route)
         }
     }
 
@@ -365,6 +200,10 @@ impl Ekko {
                     EkkoError::SocketCreateIcmpv4(e.to_string())
                 })?;
 
+                socket.set_nonblocking(true).map_err(|e| {
+                    EkkoError::SocketSetNonBlocking(true, e.to_string())
+                })?;
+
                 socket.set_recv_buffer_size(512).map_err(|e| {
                     EkkoError::SocketSetReceiveBufferSize(e.to_string())
                 })?;
@@ -376,7 +215,7 @@ impl Ekko {
                 Ok(Ekko {
                     source_socket_address: SocketAddr::V4(source_address),
                     target_socket_address: target_socket_address,
-                    sequence_number: 0,
+                    sequence: 0,
                     identifier: rand::random(),
                     buffer_receive: Vec::with_capacity(512),
                     buffer_send: Vec::with_capacity(64),
@@ -390,6 +229,10 @@ impl Ekko {
                     EkkoError::SocketCreateIcmpv6(e.to_string())
                 })?;
 
+                socket.set_nonblocking(true).map_err(|e| {
+                    EkkoError::SocketSetNonBlocking(true, e.to_string())
+                })?;
+
                 socket.set_recv_buffer_size(512).map_err(|e| {
                     EkkoError::SocketSetReceiveBufferSize(e.to_string())
                 })?;
@@ -401,13 +244,81 @@ impl Ekko {
                 Ok(Ekko {
                     source_socket_address: SocketAddr::V6(source_address),
                     target_socket_address: target_socket_address,
-                    sequence_number: 0,
+                    sequence: 0,
                     identifier: rand::random(),
                     buffer_receive: Vec::with_capacity(512),
                     buffer_send: Vec::with_capacity(64),
                     socket: socket,
                 })
             }
+        }
+    }
+
+    fn raw_send(&mut self, hops: u32, requesting_sequence: u16, requesting_identifier: u16) -> Result<(), EkkoError> {
+        match (self.source_socket_address, self.target_socket_address) {
+            (SocketAddr::V6(source), SocketAddr::V6(target)) => {
+                self.socket.set_unicast_hops_v6(hops).map_err(|e| {
+                    EkkoError::SocketSetMaxHopsIpv6(e.to_string())
+                })?;
+
+                self.buffer_send.resize(64, 0);
+                let request = EchoRequest::new_ipv6(self.buffer_send.as_mut_slice(), requesting_identifier, requesting_sequence, &(source.ip().segments()), &(target.ip().segments()))?;
+                self.socket.send_to(request.as_slice(), &(target.into())).map_err(|e| {
+                    EkkoError::SocketSend(e.to_string())
+                })?;
+            },
+            (SocketAddr::V4(_), SocketAddr::V4(target)) => {
+                self.socket.set_ttl(hops).map_err(|e| {
+                    EkkoError::SocketSetMaxHopsIpv4(e.to_string())
+                })?;
+
+                self.buffer_send.resize(64, 0);
+                let request = EchoRequest::new_ipv4(self.buffer_send.as_mut_slice(), requesting_identifier, requesting_sequence)?;
+                self.socket.send_to(request.as_slice(), &(target.into())).map_err(|e| {
+                    EkkoError::SocketSend(e.to_string())
+                })?;
+            },
+            (SocketAddr::V4(source), SocketAddr::V6(target)) => {
+                return Err(EkkoError::SocketIpMismatch { 
+                    src: source.to_string(), 
+                    tgt: target.to_string() 
+                })
+            },
+            (SocketAddr::V6(source), SocketAddr::V4(target)) => {
+                return Err(EkkoError::SocketIpMismatch { 
+                    src: source.to_string(), 
+                    tgt: target.to_string() 
+                })
+            },
+        };
+
+        Ok(())
+    }
+
+    fn raw_recv(&mut self) -> Result<Option<(IpAddr, EchoResponse)>, EkkoError> {
+        self.buffer_receive.resize(512, 0);
+        if let Ok((_, responder)) = self.socket.recv_from(self.buffer_receive.as_mut_slice()) {
+            let responding_address = match self.source_socket_address {
+                SocketAddr::V6(_) => IpAddr::V6(responder.as_inet6()
+                    .ok_or(EkkoError::SocketReceiveNoIpv6)?.ip().clone()),
+                SocketAddr::V4(_) => IpAddr::V4(responder.as_inet()
+                    .ok_or(EkkoError::SocketReceiveNoIpv4)?.ip().clone()),
+            };
+
+            let mut cursor = Cursor::new(self.buffer_receive.as_slice());
+            let header_octets = ((cursor.read_u8().map_err(|e| {
+                EkkoError::ResponseReadField("internet protocol header size", e.to_string())
+            })? & 0x0F) * 4) as usize;
+
+            match responding_address {
+                IpAddr::V4(_) => Ok(Some((responding_address, EchoResponse::V4(&self.buffer_receive[header_octets..])))),
+                IpAddr::V6(_) => Ok(Some((responding_address, EchoResponse::V6(&self.buffer_receive[..])))),
+            }
+        }
+        
+        else {
+            
+            Ok(None)
         }
     }
 }
