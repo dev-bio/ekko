@@ -1,6 +1,7 @@
 use std::{ 
     
     fmt::{
+
         Result as FmtResult,
         Formatter, 
         Debug, 
@@ -12,6 +13,7 @@ use std::{
 use super::error::{EkkoError};
 
 use byteorder::{
+    
     WriteBytesExt,
     ReadBytesExt, 
     BigEndian, 
@@ -69,7 +71,7 @@ impl<'a> EchoResponse<'a> {
                 match self.get_type()? {
 
                     0 => {
-                        
+
                         let mut cursor = Cursor::new(buffer);
                         cursor.set_position(4);
                         Ok(cursor.read_u16::<BigEndian>().map_err(|e| {

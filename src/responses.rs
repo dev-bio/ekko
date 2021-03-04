@@ -4,6 +4,7 @@ use std::{
     net::{IpAddr}, 
     
     time::{
+        
         Duration, 
         Instant,
     },
@@ -127,7 +128,7 @@ impl EkkoResponse {
         let (address, hops) = net;
 
         match address {
-            
+
             IpAddr::V4(_) => match echo_type {
 
                 3 => {

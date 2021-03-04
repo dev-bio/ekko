@@ -1,10 +1,12 @@
 <div align="center">
 
+<a href="https://crates.io/crates/ekko">
 <img width="200" src="https://raw.githubusercontent.com/dev-bio/Ekko/master/media/ekko.svg" alt="Ekko - Echo Request Utility"/>
+</a>
 
 __Echo Request Utility__
 
-[![dependency status](https://deps.rs/crate/ekko/0.3.0/status.svg)](https://deps.rs/crate/ekko/0.3.0)
+[![dependency status](https://deps.rs/crate/ekko/0.4.0/status.svg)](https://deps.rs/crate/ekko/0.4.0)
 [![Documentation](https://docs.rs/ekko/badge.svg)](https://docs.rs/ekko)
 [![License](https://img.shields.io/crates/l/ekko.svg)](https://choosealicense.com/licenses/mit/)
 
@@ -12,14 +14,14 @@ __Echo Request Utility__
 
 ---
 
-Ekko is a simple and light utility for sending echo requests synchronously, built upon raw sockets; currently in its early stages with little to no coverage.
+Ekko is a simple and light utility for sending echo requests synchronously, built upon raw sockets; currently in its early stages with little to no test coverage.
 
 ## Usage
 To use `ekko`, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ekko = "0.3.0"
+ekko = "0.4.0"
 ```
 
 ## Example
