@@ -66,6 +66,7 @@ impl Ekko {
     /// Send an echo request with or with a specified timeout ..
     pub fn send_with_timeout(&mut self, hops: u32, timeout: Duration) -> Result<EkkoResponse, EkkoError> {
         let timepoint = Instant::now();
+
         self.raw_send(hops, self.sequence, self.identifier)?;
         let sequence = self.sequence;
 
@@ -126,12 +127,12 @@ impl Ekko {
 
         loop {
 
-            let identifier = self.identifier;
+            let request_identifier = self.identifier;
             if let Some((address, response)) = self.raw_recv()? {
-                for (instant, sequence, _) in &(echo_requests) {
-                    match (sequence.clone(), identifier.clone()) {
+                for (request_timepoint, request_sequence, _) in &(echo_requests) {
+                    match (request_sequence.clone(), request_identifier.clone()) {
                         x if x == (response.get_sequence()?, response.get_identifier()?) => echo_responses.push({
-                            (address, instant.elapsed(), response.get_type()?, response.get_code()?, response.get_sequence()?)
+                            (address.clone(), request_timepoint.clone(), request_timepoint.elapsed(), response.get_type()?, response.get_code()?, response.get_sequence()?)
                         }),
                         
                         _ => continue
@@ -147,16 +148,17 @@ impl Ekko {
                 }
             }
             
-            for (timepoint, requesting_sequence, hops) in echo_requests {
+            for (request_timepoint, request_sequence, request_hops) in echo_requests {
                 let previous = route.len();
-                for (address, elapsed, response_type, response_code, response_sequence) in &(echo_responses) {
-                    match &(requesting_sequence) {
+                for (response_address, request_timepoint, response_elapsed, response_type, response_code, response_sequence) in &(echo_responses) {
+                    match &(request_sequence) {
                         x if x == response_sequence => route.push({
-                            EkkoResponse::new(address.clone(), hops.clone(), 
+                            EkkoResponse::new(response_address.clone(), 
+                                request_hops.clone(), 
                                 response_type.clone(), 
                                 response_code.clone(), 
-                                timepoint.clone(), 
-                                elapsed.clone())?
+                                request_timepoint.clone(), 
+                                response_elapsed.clone())?
                         }),
 
                         _ => continue
@@ -167,10 +169,10 @@ impl Ekko {
 
                 if previous < route.len() { continue } else {
                     route.push(EkkoResponse::Lacking(EkkoData { 
-                        timepoint: timepoint, 
-                        elapsed: timepoint.elapsed(),
                         address: None,
-                        hops: hops,
+                        hops: request_hops.clone(),
+                        timepoint: request_timepoint.clone(), 
+                        elapsed: request_timepoint.elapsed(),
                     }));
                 }
             }
@@ -254,7 +256,7 @@ impl Ekko {
         }
     }
 
-    fn raw_send(&mut self, hops: u32, requesting_sequence: u16, requesting_identifier: u16) -> Result<(), EkkoError> {
+    fn raw_send(&mut self, hops: u32, request_sequence: u16, request_identifier: u16) -> Result<(), EkkoError> {
         match (self.source_socket_address, self.target_socket_address) {
             (SocketAddr::V6(source), SocketAddr::V6(target)) => {
                 self.socket.set_unicast_hops_v6(hops).map_err(|e| {
@@ -262,7 +264,7 @@ impl Ekko {
                 })?;
 
                 self.buffer_send.resize(64, 0);
-                let request = EchoRequest::new_ipv6(self.buffer_send.as_mut_slice(), requesting_identifier, requesting_sequence, &(source.ip().segments()), &(target.ip().segments()))?;
+                let request = EchoRequest::new_ipv6(self.buffer_send.as_mut_slice(), request_identifier, request_sequence, &(source.ip().segments()), &(target.ip().segments()))?;
                 self.socket.send_to(request.as_slice(), &(target.into())).map_err(|e| {
                     EkkoError::SocketSend(e.to_string())
                 })?;
@@ -273,7 +275,7 @@ impl Ekko {
                 })?;
 
                 self.buffer_send.resize(64, 0);
-                let request = EchoRequest::new_ipv4(self.buffer_send.as_mut_slice(), requesting_identifier, requesting_sequence)?;
+                let request = EchoRequest::new_ipv4(self.buffer_send.as_mut_slice(), request_identifier, request_sequence)?;
                 self.socket.send_to(request.as_slice(), &(target.into())).map_err(|e| {
                     EkkoError::SocketSend(e.to_string())
                 })?;
