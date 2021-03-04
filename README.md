@@ -33,9 +33,7 @@ use ekko::{ error::{EkkoError},
 fn main() -> Result<(), EkkoError> {
     let mut ping = Ekko::with_target("rustup.rs")?;
 
-    for hops in 0..64 {
-        let response = ping.send(hops)?;
-
+    for response in ping.trace(0..64)? {
         match response {
             EkkoResponse::Destination(data) => {
                 println!("DestinationResponse: {:?}", data);
