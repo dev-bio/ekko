@@ -1,5 +1,6 @@
 use std::{
-
+    
+    ops::{Range}, 
     io::{Cursor}, 
 
     net::{
@@ -15,9 +16,7 @@ use std::{
         Ipv6Addr, 
         Ipv4Addr, 
         IpAddr, 
-    }, 
-    
-    ops::{Range}, 
+    },   
     
     time::{
 
@@ -87,7 +86,7 @@ impl Ekko {
             IpAddr::V4(_) => {
 
                 let source_address = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 0);
-                let socket = Socket::new(Domain::ipv4(), Type::raw(), Some(Protocol::icmpv4())).map_err(|e| {
+                let socket = Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::ICMPV4)).map_err(|e| {
                     EkkoError::SocketCreateIcmpv4(e.to_string())
                 })?;
 
@@ -120,7 +119,7 @@ impl Ekko {
             IpAddr::V6(_) => {
 
                 let source_address = SocketAddrV6::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0), 0, 0, 0);
-                let socket = Socket::new(Domain::ipv6(), Type::raw(), Some(Protocol::icmpv6())).map_err(|e| {
+                let socket = Socket::new(Domain::IPV6, Type::RAW, Some(Protocol::ICMPV6)).map_err(|e| {
                     EkkoError::SocketCreateIcmpv6(e.to_string())
                 })?;
 
@@ -342,14 +341,18 @@ impl Ekko {
 
     fn inner_recv(&mut self) -> Result<Option<(IpAddr, EchoResponse)>, EkkoError> {
         self.buffer_receive.resize(512, 0);
-        if let Ok((_, responder)) = self.socket.recv_from(self.buffer_receive.as_mut_slice()) {
+        let result = self.socket.recv_from(unsafe { 
+            std::mem::transmute(self.buffer_receive.as_mut_slice()) 
+        });
+
+        if let Ok((_, responder)) = result {
             let responding_address = match self.source_socket_address {
 
-                SocketAddr::V6(_) => IpAddr::V6(responder.as_inet6()
-                    .ok_or(EkkoError::SocketReceiveNoIpv6)?.ip().clone()),
-                    
-                SocketAddr::V4(_) => IpAddr::V4(responder.as_inet()
+                SocketAddr::V4(_) => IpAddr::V4(responder.as_socket_ipv4()
                     .ok_or(EkkoError::SocketReceiveNoIpv4)?.ip().clone()),
+                    
+                SocketAddr::V6(_) => IpAddr::V6(responder.as_socket_ipv6()
+                    .ok_or(EkkoError::SocketReceiveNoIpv6)?.ip().clone()),
             };
 
             let mut cursor = Cursor::new(self.buffer_receive.as_slice());

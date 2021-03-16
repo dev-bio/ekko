@@ -1,5 +1,3 @@
-#![deny(unsafe_code)]
-
 //! Ekko is a simple utility for sending echo requests, giving you (mostly) everything you need.
 //!
 //! ## Example
