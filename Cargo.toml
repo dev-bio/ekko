@@ -32,5 +32,4 @@ exclude = [
 thiserror = { version = "1.0.24" }
 byteorder = { version = "1.4.2" }
 socket2 = { version = "0.4.0", features = [ "all" ] }
-anyhow = { version = "1.0.40" }
 rand = { version = "0.8.3" }

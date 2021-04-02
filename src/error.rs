@@ -1,16 +1,6 @@
-use std::io::{
-    Error as IoError
-};
+use thiserror::{Error};
 
-use thiserror::{
-    Error as ThisError
-};
-
-use anyhow::{
-    Error as AnyError
-};
-
-#[derive(ThisError, Debug)]
+#[derive(Error, Debug)]
 pub enum EkkoError {
     #[error("Socket send, reason: {0}")]
     SocketSend(String),
@@ -52,12 +42,4 @@ pub enum EkkoError {
     RequestWriteIcmpv4Payload(String),
     #[error("Failed to write request payload, reason: {0}")]
     RequestWriteIcmpv6Payload(String),
-    #[error("Failed to resolve address for hostname [{0}].")]
-    UnresolvedTarget(String),
-    #[error("Failed to resolve address for hostname [{0}], reason: {1}")]
-    BadTarget(String, String),
-    #[error(transparent)]
-    IoError(#[from] IoError),
-    #[error(transparent)]
-    Other(#[from] AnyError),
 }

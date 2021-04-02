@@ -2,33 +2,29 @@
 //!
 //! ## Example
 //! ```rust,no_run
-//! # use std::net::{ToSocketAddrs};
-//! 
 //! use ekko::{ error::{EkkoError},
 //!     EkkoResponse,
 //!     Ekko,
 //! };
 //! 
 //! fn main() -> Result<(), EkkoError> {
-//!     if let Some(destination) = "8.8.8.8:0".to_socket_addrs()?.last() {
-//!         let mut sender = Ekko::with_target(destination)?;
+//!     let mut sender = Ekko::with_target(([8, 8, 8, 8], 0))?;
 //! 
-//!         for hops in 0..64 {
-//!             let responses = sender.send_range(0..(hops))?;
-//!             for ekko in responses.iter() {
-//!                 match ekko {
+//!     for hops in 0..64 {
+//!         let responses = sender.send_range(0..(hops))?;
+//!         for ekko in responses.iter() {
+//!             match ekko {
 //! 
-//!                     EkkoResponse::Destination(_) => {
+//!                 EkkoResponse::Destination(_) => {
 //! 
-//!                         for ekko in responses.iter() {
-//!                             println!("{:?}", ekko)
-//!                         }
-//!         
-//!                         return Ok(()) 
+//!                     for ekko in responses.iter() {
+//!                         println!("{:?}", ekko)
 //!                     }
-//! 
-//!                     _ => continue
+//!     
+//!                     return Ok(()) 
 //!                 }
+//! 
+//!                 _ => continue
 //!             }
 //!         }
 //!     }
