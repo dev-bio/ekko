@@ -5,7 +5,6 @@ use std::{
 
     net::{
 
-        ToSocketAddrs,
         SocketAddrV6, 
         SocketAddrV4, 
         SocketAddr, 
@@ -68,19 +67,8 @@ pub struct Ekko {
 impl Ekko {
 
     /// Build a sender with given target address ..
-    pub fn with_target(target: &str) -> Result<Ekko, EkkoError> {
-        let target = target.to_socket_addrs().or_else(|_| {
-            format!("[{}]:0", target).to_socket_addrs().or_else(|_| {
-                format!("{}:0", target).to_socket_addrs().map_err(|e| {
-                    EkkoError::BadTarget(target.to_string(), e.to_string())
-                })
-            }).map_err(|e| {
-                EkkoError::BadTarget(target.to_string(), e.to_string())
-            })
-        }).and_then(|results| results.into_iter().next().ok_or({
-            EkkoError::UnresolvedTarget(target.to_string())
-        })).and_then(|result| Ok(result))?;
-
+    pub fn with_target<T: Into<SocketAddr>>(target: T) -> Result<Ekko, EkkoError> {
+        let target: SocketAddr = target.into();
         let result = match target.ip() {
 
             IpAddr::V4(_) => {
@@ -199,13 +187,15 @@ impl Ekko {
         Ok(result)
     }
 
-    /// Trace route with a default timeout of 1000 milliseconds ..
-    pub fn trace(&mut self, hops: Range<u32>) -> Result<Vec<EkkoResponse>, EkkoError> {
-        self.trace_with_timeout(hops, Duration::from_millis(1000))
+    /// Send echo requests for all hops in range at the same time with a default timeout of 1000 milliseconds. Note that 
+    /// the target may end up being flooded with echo requests if the range is way above the needed hops to reach it!
+    pub fn send_range(&mut self, hops: Range<u32>) -> Result<Vec<EkkoResponse>, EkkoError> {
+        self.send_range_with_timeout(hops, Duration::from_millis(1000))
     }
 
-    /// Trace route with specified timeout ..
-    pub fn trace_with_timeout(&mut self, hops: Range<u32>, timeout: Duration) -> Result<Vec<EkkoResponse>, EkkoError> {
+    /// Send echo requests for all hops in range at the same time with specified timeout. Note that the target may end up 
+    /// being flooded with echo requests if the range is way above the needed hops to reach it!
+    pub fn send_range_with_timeout(&mut self, hops: Range<u32>, timeout: Duration) -> Result<Vec<EkkoResponse>, EkkoError> {
         let mut echo_responses = Vec::new();
         let mut echo_requests = Vec::new();
         let mut echo_route = Vec::new();
@@ -294,47 +284,34 @@ impl Ekko {
         }
     }
 
-    fn inner_send(&mut self, hops: u32, req_sequence: u16, req_identifier: u16) -> Result<(), EkkoError> {
+    fn inner_send(&mut self, hops: u32, seq: u16, idf: u16) -> Result<(), EkkoError> {
         match (self.source_socket_address, self.target_socket_address) {
 
-            (SocketAddr::V6(source), SocketAddr::V6(target)) => {
+            (SocketAddr::V6(_), SocketAddr::V6(_)) => {
                 self.socket.set_unicast_hops_v6(hops).map_err(|e| {
                     EkkoError::SocketSetMaxHopsIpv6(e.to_string())
                 })?;
-
-                self.buffer_send.resize(64, 0);
-                let request = EchoRequest::new_ipv6(self.buffer_send.as_mut_slice(), req_identifier, req_sequence, &(source.ip().segments()), &(target.ip().segments()))?;
-                self.socket.send_to(request.as_slice(), &(target.into())).map_err(|e| {
-                    EkkoError::SocketSend(e.to_string())
-                })?;
             }
 
-            (SocketAddr::V4(_), SocketAddr::V4(target)) => {
+            (SocketAddr::V4(_), SocketAddr::V4(_)) => {
                 self.socket.set_ttl(hops).map_err(|e| {
                     EkkoError::SocketSetMaxHopsIpv4(e.to_string())
                 })?;
-
-                self.buffer_send.resize(64, 0);
-                let request = EchoRequest::new_ipv4(self.buffer_send.as_mut_slice(), req_identifier, req_sequence)?;
-                self.socket.send_to(request.as_slice(), &(target.into())).map_err(|e| {
-                    EkkoError::SocketSend(e.to_string())
-                })?;
             }
 
-            (SocketAddr::V4(source), SocketAddr::V6(target)) => {
+            (src, dst) => {
                 return Err(EkkoError::SocketIpMismatch { 
-                    src: source.to_string(), 
-                    tgt: target.to_string() 
-                })
-            }
-
-            (SocketAddr::V6(source), SocketAddr::V4(target)) => {
-                return Err(EkkoError::SocketIpMismatch { 
-                    src: source.to_string(), 
-                    tgt: target.to_string() 
+                    src: src.to_string(), 
+                    dst: dst.to_string() 
                 })
             }
         };
+
+        self.buffer_send.resize(64, 0);
+        let request = EchoRequest::new(self.buffer_send.as_mut_slice(), idf, seq, self.source_socket_address, self.target_socket_address)?;
+        self.socket.send_to(request.as_slice(), &(self.target_socket_address.into())).map_err(|e| {
+            EkkoError::SocketSend(e.to_string())
+        })?;
 
         Ok(())
     }

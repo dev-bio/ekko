@@ -8,31 +8,26 @@
 //! };
 //! 
 //! fn main() -> Result<(), EkkoError> {
-//!     let mut ping = Ekko::with_target("rustup.rs")?;
+//!     if let Some(destination) = "8.8.8.8:0".to_socket_addrs()?.last() {
+//!         let mut sender = Ekko::with_target(destination)?;
 //! 
-//!     // Send single ..
-//!     for hop in 0..64 {
-//!         match ping.send(hop)? {
+//!         for hops in 0..64 {
+//!             let responses = sender.send_range(0..(hops))?;
+//!             for ekko in responses.iter() {
+//!                 match ekko {
 //! 
-//!             EkkoResponse::Destination(data) => {
-//!                 println!("{:?}", EkkoResponse::Destination(data));
-//!                 break
+//!                     EkkoResponse::Destination(_) => {
+//! 
+//!                         for ekko in responses.iter() {
+//!                             println!("{:?}", ekko)
+//!                         }
+//!         
+//!                         return Ok(()) 
+//!                     }
+//! 
+//!                     _ => continue
+//!                 }
 //!             }
-//! 
-//!             x => println!("{:?}", x)
-//!         }
-//!     }
-//! 
-//!     // Send batch ..
-//!     for response in ping.trace(0..64)? {
-//!         match response {
-//! 
-//!             EkkoResponse::Destination(data) => {
-//!                 println!("{:?}", EkkoResponse::Destination(data));
-//!                 break
-//!             }
-//! 
-//!             x => println!("{:?}", x)
 //!         }
 //!     }
 //! 

@@ -1,6 +1,6 @@
 [package]
 name = "ekko"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["André Kristiansen"]
 description = "Ekko is a simple and light utility for sending echo requests synchronously, built upon raw sockets."
 repository = "https://github.com/dev-bio/ekko"
@@ -32,4 +32,5 @@ exclude = [
 thiserror = { version = "1.0.24" }
 byteorder = { version = "1.4.2" }
 socket2 = { version = "0.4.0", features = [ "all" ] }
+anyhow = { version = "1.0.40" }
 rand = { version = "0.8.3" }

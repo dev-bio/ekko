@@ -1,6 +1,16 @@
-use thiserror::{Error};
+use std::io::{
+    Error as IoError
+};
 
-#[derive(Error, Debug)]
+use thiserror::{
+    Error as ThisError
+};
+
+use anyhow::{
+    Error as AnyError
+};
+
+#[derive(ThisError, Debug)]
 pub enum EkkoError {
     #[error("Socket send, reason: {0}")]
     SocketSend(String),
@@ -16,8 +26,8 @@ pub enum EkkoError {
     SocketReceiveNoIpv4,
     #[error("Socket returned no address for responder.")]
     SocketReceiveNoIpv6,
-    #[error("Cannot combine address [{src:?}] (source) with [{tgt:?}] (target).")]
-    SocketIpMismatch { src: String, tgt: String },
+    #[error("Cannot combine address [{src:?}] (source) with [{dst:?}] (target).")]
+    SocketIpMismatch { src: String, dst: String },
     #[error("Could not set sockets receive buffer size, reason: {0}")]
     SocketSetReceiveBufferSize(String),
     #[error("Socket failed setting non-blocking to {0}, reason: {1}")]
@@ -28,6 +38,8 @@ pub enum EkkoError {
     SocketSetMaxHopsIpv4(String),
     #[error("Could not set socket max hops, reason: {0}")]
     SocketSetMaxHopsIpv6(String),
+    #[error("Cannot combine address [{src:?}] (source) with [{dst:?}] (target).")]
+    RequestIpMismatch { src: String, dst: String },
     #[error("Failed to read response field [{0}], reason: {1}")]
     ResponseReadField(&'static str, String),
     #[error("Failed to read request field [{0}], reason: {1}")]
@@ -44,4 +56,8 @@ pub enum EkkoError {
     UnresolvedTarget(String),
     #[error("Failed to resolve address for hostname [{0}], reason: {1}")]
     BadTarget(String, String),
+    #[error(transparent)]
+    IoError(#[from] IoError),
+    #[error(transparent)]
+    Other(#[from] AnyError),
 }

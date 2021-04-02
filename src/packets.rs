@@ -1,12 +1,13 @@
-use std::{ 
+use std::{
     
     fmt::{
 
         Result as FmtResult,
         Formatter, 
         Debug, 
-    },
-
+    }, 
+    
+    net::{SocketAddr},
     io::{Cursor}, 
 };
 
@@ -207,7 +208,19 @@ pub(crate) enum EchoRequest<'a> {
 }
 
 impl<'a> EchoRequest<'a> {
-    pub fn new_ipv4(buffer: &'a mut [u8], idf: u16, seq: u16) -> Result<EchoRequest, EkkoError> {
+    pub fn new(buffer: &'a mut [u8], idf: u16, seq: u16, src: SocketAddr, dst: SocketAddr) -> Result<EchoRequest, EkkoError> {
+        match (src, dst) {
+
+            (SocketAddr::V4(_), SocketAddr::V4(_)) => EchoRequest::new_ipv4(buffer, idf, seq),
+            (SocketAddr::V6(src), SocketAddr::V6(dst)) => EchoRequest::new_ipv6(buffer, idf, seq, &(src.ip().segments()), &(dst.ip().segments())),
+            _ => Err(EkkoError::RequestIpMismatch { 
+                src: src.to_string(), 
+                dst: dst.to_string() 
+            })
+        }
+    }
+
+    fn new_ipv4(buffer: &'a mut [u8], idf: u16, seq: u16) -> Result<EchoRequest, EkkoError> {
         let mut cursor = Cursor::new(buffer);
 
         fn checksum_v4(data: &[u8]) -> u16 {
@@ -262,7 +275,7 @@ impl<'a> EchoRequest<'a> {
         }))
     }
 
-    pub fn new_ipv6<'b>(buffer: &'a mut [u8], idf: u16, seq: u16, src: &'b [u16; 8], dst: &'b [u16; 8]) -> Result<EchoRequest<'a>, EkkoError> {
+    fn new_ipv6<'b>(buffer: &'a mut [u8], idf: u16, seq: u16, src: &'b [u16; 8], dst: &'b [u16; 8]) -> Result<EchoRequest<'a>, EkkoError> {
         let mut cursor = Cursor::new(buffer);
 
         fn checksum_v6(data: &[u8], src: &[u16; 8], dst: &[u16; 8]) -> u16 {
