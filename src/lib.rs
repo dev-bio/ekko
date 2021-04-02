@@ -2,6 +2,8 @@
 //!
 //! ## Example
 //! ```rust,no_run
+//! # use std::net::{ToSocketAddrs};
+//! 
 //! use ekko::{ error::{EkkoError},
 //!     EkkoResponse,
 //!     Ekko,
