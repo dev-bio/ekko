@@ -31,6 +31,6 @@ exclude = [
 
 [dependencies]
 thiserror = { version = "1.0.24" }
-byteorder = { version = "1.4.2" }
+byteorder = { version = "1.4.3" }
 socket2 = { version = "0.4.0", features = [ "all" ] }
 rand = { version = "0.8.3" }
