@@ -1,4 +1,4 @@
-//! Ekko is a simple utility for sending echo requests, giving you (mostly) everything you need.
+//! Ekko aims to be a light utility for sending echo requests; currently in its early stages.
 //!
 //! ## Example
 //! ```rust,no_run
