@@ -27,7 +27,10 @@ ekko = "0.5.0"
 ## Example
 The following example will trace the route to the specified destination.
 ```rust
-use ekko::{ error::{EkkoError},
+use ekko::{ 
+
+    error::{EkkoError},
+    
     EkkoResponse,
     Ekko,
 };
@@ -41,7 +44,6 @@ fn main() -> Result<(), EkkoError> {
             match ekko {
 
                 EkkoResponse::Destination(_) => {
-
                     for ekko in responses.iter() {
                         println!("{:?}", ekko)
                     }

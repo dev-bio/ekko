@@ -56,11 +56,6 @@ pub struct Ekko {
     source_socket_address: SocketAddr,
     target_socket_address: SocketAddr,
 
-    identifier: u16,
-    sequence: u16,
-
-    buffer_receive: Vec<u8>,
-    buffer_send: Vec<u8>,
     socket: Socket,
 }
 
@@ -95,11 +90,6 @@ impl Ekko {
                     source_socket_address: SocketAddr::V4(source_address),
                     target_socket_address: target,
 
-                    identifier: rand::random(),
-                    sequence: 0,
-
-                    buffer_receive: Vec::with_capacity(512),
-                    buffer_send: Vec::with_capacity(64),
                     socket: socket,
                 }
             }
@@ -128,11 +118,6 @@ impl Ekko {
                     source_socket_address: SocketAddr::V6(source_address),
                     target_socket_address: target,
 
-                    identifier: rand::random(),
-                    sequence: 0,
-
-                    buffer_receive: Vec::with_capacity(512),
-                    buffer_send: Vec::with_capacity(64),
                     socket: socket,
                 }
             }
@@ -147,19 +132,21 @@ impl Ekko {
     }
 
     /// Send an echo request with or with a specified timeout ..
-    pub fn send_with_timeout(&mut self, hops: u32, timeout: Duration) -> Result<EkkoResponse, EkkoError> {
-        let identifier = self.identifier;
-        let sequence = self.sequence;
+    pub fn send_with_timeout(&self, hops: u32, timeout: Duration) -> Result<EkkoResponse, EkkoError> {
+        let identifier = rand::random();
+        let mut sequence = 0;
 
         let timepoint = Instant::now();
 
         self.inner_send(hops, sequence, identifier)?;
-        self.sequence = sequence.wrapping_add(1);
+        sequence = sequence.wrapping_add(1);
 
         let result = loop {
 
-            let identifier = self.identifier;
-            if let Some((address, response)) = self.inner_recv()? {
+            let mut buffer: [u8; 512] = [0; 512];
+
+            let identifier = identifier;
+            if let Some((address, response)) = self.inner_recv(&mut buffer[..])? {
                 if identifier == response.get_identifier()? {
                     if sequence == response.get_sequence()? {
                         
@@ -176,11 +163,16 @@ impl Ekko {
                 continue
             }
 
-            break EkkoResponse::Lacking(EkkoData { 
-                timepoint: timepoint, 
-                elapsed: timepoint.elapsed(),
-                address: None,
-                hops: hops,
+            break EkkoResponse::Lacking({
+
+                EkkoData { 
+
+                    address: None,
+                    hops: hops,
+                    
+                    timepoint: timepoint, 
+                    elapsed: timepoint.elapsed(),
+                }
             })
         };
 
@@ -189,25 +181,26 @@ impl Ekko {
 
     /// Send echo requests for all hops in range at the same time with a default timeout of 1000 milliseconds. Note that 
     /// the target may end up being flooded with echo requests if the range is way above the needed hops to reach it!
-    pub fn send_range(&mut self, hops: Range<u32>) -> Result<Vec<EkkoResponse>, EkkoError> {
+    pub fn send_range(&self, hops: Range<u32>) -> Result<Vec<EkkoResponse>, EkkoError> {
         self.send_range_with_timeout(hops, Duration::from_millis(1000))
     }
 
     /// Send echo requests for all hops in range at the same time with specified timeout. Note that the target may end up 
     /// being flooded with echo requests if the range is way above the needed hops to reach it!
-    pub fn send_range_with_timeout(&mut self, hops: Range<u32>, timeout: Duration) -> Result<Vec<EkkoResponse>, EkkoError> {
-        let mut echo_responses = Vec::new();
-        let mut echo_requests = Vec::new();
-        let mut echo_route = Vec::new();
+    pub fn send_range_with_timeout(&self, hops: Range<u32>, timeout: Duration) -> Result<Vec<EkkoResponse>, EkkoError> {
+        let mut echo_responses = Vec::with_capacity(hops.len());
+        let mut echo_requests = Vec::with_capacity(hops.len());
+        let mut echo_route = Vec::with_capacity(hops.len());
         
+        let identifier = rand::random();       
+        let mut sequence = 0;
+
         let timepoint = Instant::now();
 
         for hop in hops {
-            let identifier = self.identifier;       
-            let sequence = self.sequence;
 
             self.inner_send(hop, sequence, identifier)?;
-            self.sequence = sequence.wrapping_add(1);
+            sequence = sequence.wrapping_add(1);
 
             echo_requests.push({
                 (timepoint.clone(), sequence.clone(), hop.clone())
@@ -216,8 +209,8 @@ impl Ekko {
 
         loop {
 
-            let identifier = self.identifier;
-            if let Some((address, response)) = self.inner_recv()? {
+            let mut buffer: [u8; 512] = [0; 512];
+            if let Some((address, response)) = self.inner_recv(&mut buffer[..])? {
                 for (request_timepoint, request_sequence, _) 
                     in &(echo_requests) {
 
@@ -270,11 +263,17 @@ impl Ekko {
                 else {
 
                     echo_route.push({
-                        EkkoResponse::Lacking(EkkoData { 
-                            address: None,
-                            hops: request_hops.clone(),
-                            timepoint: request_timepoint.clone(), 
-                            elapsed: request_timepoint.elapsed(),
+
+                        EkkoResponse::Lacking({
+
+                            EkkoData { 
+
+                                address: None,
+                                hops: request_hops.clone(),
+
+                                timepoint: request_timepoint.clone(), 
+                                elapsed: request_timepoint.elapsed(),
+                            }
                         })
                     });
                 }
@@ -284,7 +283,7 @@ impl Ekko {
         }
     }
 
-    fn inner_send(&mut self, hops: u32, seq: u16, idf: u16) -> Result<(), EkkoError> {
+    fn inner_send(&self, hops: u32, seq: u16, idf: u16) -> Result<(), EkkoError> {
         match (self.source_socket_address, self.target_socket_address) {
 
             (SocketAddr::V6(_), SocketAddr::V6(_)) => {
@@ -307,8 +306,8 @@ impl Ekko {
             }
         };
 
-        self.buffer_send.resize(64, 0);
-        let request = EchoRequest::new(self.buffer_send.as_mut_slice(), idf, seq, self.source_socket_address, self.target_socket_address)?;
+        let mut buffer: [u8; 512] = [0; 512];
+        let request = EchoRequest::new(&mut buffer[..], idf, seq, self.source_socket_address, self.target_socket_address)?;
         self.socket.send_to(request.as_slice(), &(self.target_socket_address.into())).map_err(|e| {
             EkkoError::SocketSend(e.to_string())
         })?;
@@ -316,10 +315,9 @@ impl Ekko {
         Ok(())
     }
 
-    fn inner_recv(&mut self) -> Result<Option<(IpAddr, EchoResponse)>, EkkoError> {
-        self.buffer_receive.resize(512, 0);
+    fn inner_recv<'a>(&self, buf: &'a mut [u8]) -> Result<Option<(IpAddr, EchoResponse<'a>)>, EkkoError> {
         let result = self.socket.recv_from(unsafe { 
-            std::mem::transmute(self.buffer_receive.as_mut_slice()) 
+            std::mem::transmute(&mut buf[..]) 
         });
 
         if let Ok((_, responder)) = result {
@@ -332,15 +330,20 @@ impl Ekko {
                     .ok_or(EkkoError::SocketReceiveNoIpv6)?.ip().clone()),
             };
 
-            let mut cursor = Cursor::new(self.buffer_receive.as_slice());
+            let mut cursor = Cursor::new(buf.as_ref());
             let header_octets = ((cursor.read_u8().map_err(|e| {
                 EkkoError::ResponseReadField("internet protocol header size", e.to_string())
             })? & 0x0F) * 4) as usize;
 
             match responding_address {
 
-                IpAddr::V4(_) => Ok(Some((responding_address, EchoResponse::V4(&self.buffer_receive[header_octets..])))),
-                IpAddr::V6(_) => Ok(Some((responding_address, EchoResponse::V6(&self.buffer_receive[..])))),
+                IpAddr::V4(_) => Ok(Some((responding_address, {
+                    EchoResponse::V4(&buf[header_octets..])
+                }))),
+
+                IpAddr::V6(_) => Ok(Some((responding_address, {
+                    EchoResponse::V6(&buf[..])
+                }))),
             }
         }
         

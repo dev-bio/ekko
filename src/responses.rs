@@ -153,21 +153,32 @@ impl EkkoResponse {
                         _ => UnreachableCodeV4::Unexpected(echo_code),
                     });
 
-                    Ok(EkkoResponse::Unreachable((EkkoData { 
-                        timepoint, 
-                        elapsed,
-                        address: Some(address),
-                        hops,
+                    Ok(EkkoResponse::Unreachable(({
+
+                        EkkoData { 
+
+                            address: Some(address),
+                            hops,
+
+                            timepoint, 
+                            elapsed,
+                        }
+                        
                     }, unreachable_code)))
                 }
 
                 4 => {
 
-                    Ok(EkkoResponse::SourceQuench(EkkoData { 
-                        timepoint, 
-                        elapsed,
-                        address: Some(address),
-                        hops,
+                    Ok(EkkoResponse::SourceQuench({
+
+                        EkkoData { 
+
+                            address: Some(address),
+                            hops,
+
+                            timepoint, 
+                            elapsed,
+                        }
                     }))
                 }
 
@@ -181,21 +192,32 @@ impl EkkoResponse {
                         _ => Redirect::Unexpected(echo_code),
                     };
 
-                    Ok(EkkoResponse::Redirect((EkkoData { 
-                        timepoint, 
-                        elapsed,
-                        address: Some(address),
-                        hops,
+                    Ok(EkkoResponse::Redirect(({
+
+                        EkkoData { 
+
+                            address: Some(address),
+                            hops,
+
+                            timepoint, 
+                            elapsed,
+                        }
+
                     }, redirect_code)))
                 }
 
                 11 => {
 
-                    Ok(EkkoResponse::Exceeded(EkkoData { 
-                        timepoint, 
-                        elapsed,
-                        address: Some(address),
-                        hops,
+                    Ok(EkkoResponse::Exceeded({
+
+                        EkkoData { 
+
+                            address: Some(address),
+                            hops,
+
+                            timepoint, 
+                            elapsed,
+                        }
                     }))
                 }
 
@@ -206,21 +228,32 @@ impl EkkoResponse {
                         _ => ParameterProblemV4::Unexpected(echo_code),
                     });
 
-                    Ok(EkkoResponse::ParameterProblem((EkkoData { 
-                        timepoint, 
-                        elapsed,
-                        address: Some(address),
-                        hops,
+                    Ok(EkkoResponse::ParameterProblem(({
+
+                        EkkoData { 
+
+                            address: Some(address),
+                            hops,
+
+                            timepoint, 
+                            elapsed,
+                        }
+
                     }, parameter_problem_code)))
                 }
 
                 0 => {
 
-                    Ok(EkkoResponse::Destination(EkkoData { 
-                        timepoint, 
-                        elapsed,
-                        address: Some(address),
-                        hops,
+                    Ok(EkkoResponse::Destination({
+
+                        EkkoData { 
+
+                            address: Some(address),
+                            hops,
+
+                            timepoint, 
+                            elapsed,
+                        }
                     }))
                 }
 
@@ -228,11 +261,17 @@ impl EkkoResponse {
 
                     let unexpected = (echo_type, echo_code);
 
-                    Ok(EkkoResponse::Unexpected((EkkoData { 
-                        timepoint, 
-                        elapsed,
-                        address: Some(address),
-                        hops,
+                    Ok(EkkoResponse::Unexpected(({
+
+                        EkkoData { 
+
+                            address: Some(address),
+                            hops,
+
+                            timepoint, 
+                            elapsed,
+                        }
+
                     }, unexpected)))
                 }
             }
@@ -253,31 +292,47 @@ impl EkkoResponse {
                         _ => UnreachableCodeV6::Unexpected(echo_code),
                     });
 
-                    Ok(EkkoResponse::Unreachable((EkkoData { 
-                        timepoint, 
-                        elapsed,
-                        address: Some(address),
-                        hops,
+                    Ok(EkkoResponse::Unreachable(({
+
+                        EkkoData { 
+
+                            address: Some(address),
+                            hops,
+
+                            timepoint, 
+                            elapsed,
+                        }
+
                     }, unreachable_code)))
                 }
 
                 2 => {
 
-                    Ok(EkkoResponse::PacketTooBig(EkkoData { 
-                        timepoint, 
-                        elapsed,
-                        address: Some(address),
-                        hops,
+                    Ok(EkkoResponse::PacketTooBig({
+
+                        EkkoData { 
+
+                            address: Some(address),
+                            hops,
+
+                            timepoint, 
+                            elapsed,
+                        }
                     }))
                 }
 
                 3 => {
 
-                    Ok(EkkoResponse::Exceeded(EkkoData { 
-                        timepoint, 
-                        elapsed,
-                        address: Some(address),
-                        hops,
+                    Ok(EkkoResponse::Exceeded({
+
+                        EkkoData { 
+
+                            address: Some(address),
+                            hops,
+
+                            timepoint, 
+                            elapsed,
+                        }
                     }))
                 }
 
@@ -290,21 +345,32 @@ impl EkkoResponse {
                         _ => ParameterProblemV6::Unexpected(echo_code),
                     });
 
-                    Ok(EkkoResponse::ParameterProblem((EkkoData { 
-                        timepoint, 
-                        elapsed,
-                        address: Some(address),
-                        hops,
+                    Ok(EkkoResponse::ParameterProblem(({
+
+                        EkkoData { 
+
+                            address: Some(address),
+                            hops,
+
+                            timepoint, 
+                            elapsed,
+                        }
+
                     }, parameter_problem_code)))
                 }
 
                 129 => {
 
-                    Ok(EkkoResponse::Destination(EkkoData { 
-                        timepoint, 
-                        elapsed,
-                        address: Some(address),
-                        hops,
+                    Ok(EkkoResponse::Destination({
+
+                        EkkoData { 
+
+                            address: Some(address),
+                            hops,
+
+                            timepoint, 
+                            elapsed,
+                        }
                     }))
                 }
 
@@ -312,11 +378,17 @@ impl EkkoResponse {
 
                     let unexpected = (echo_type, echo_code);
 
-                    Ok(EkkoResponse::Unexpected((EkkoData { 
-                        timepoint, 
-                        elapsed,
-                        address: Some(address),
-                        hops,
+                    Ok(EkkoResponse::Unexpected(({
+
+                        EkkoData { 
+
+                            address: Some(address),
+                            hops,
+
+                            timepoint, 
+                            elapsed,
+                        }
+
                     }, unexpected)))
                 }
             }

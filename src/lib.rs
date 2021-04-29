@@ -2,7 +2,10 @@
 //!
 //! ## Example
 //! ```rust,no_run
-//! use ekko::{ error::{EkkoError},
+//! use ekko::{ 
+//!
+//!     error::{EkkoError},
+//!
 //!     EkkoResponse,
 //!     Ekko,
 //! };
@@ -16,7 +19,6 @@
 //!             match ekko {
 //! 
 //!                 EkkoResponse::Destination(_) => {
-//! 
 //!                     for ekko in responses.iter() {
 //!                         println!("{:?}", ekko)
 //!                     }

@@ -29,8 +29,8 @@ impl<'a> EchoResponse<'a> {
     pub fn get_type(&self) -> Result<u8, EkkoError> {
         match self {
 
-            Self::V4(buffer) | Self::V6(buffer) => {
-                let mut cursor = Cursor::new(buffer);
+            Self::V4(buf) | Self::V6(buf) => {
+                let mut cursor = Cursor::new(buf);
                 cursor.set_position(0);
                 Ok(cursor.read_u8().map_err(|e| {
                     EkkoError::ResponseReadField("type", e.to_string())
@@ -42,8 +42,8 @@ impl<'a> EchoResponse<'a> {
     pub fn get_code(&self) -> Result<u8, EkkoError> {
         match self {
 
-            Self::V4(buffer) | Self::V6(buffer) => {
-                let mut cursor = Cursor::new(buffer);
+            Self::V4(buf) | Self::V6(buf) => {
+                let mut cursor = Cursor::new(buf);
                 cursor.set_position(1);
                 Ok(cursor.read_u8().map_err(|e| {
                     EkkoError::ResponseReadField("code", e.to_string())
@@ -55,8 +55,8 @@ impl<'a> EchoResponse<'a> {
     pub fn get_checksum(&self) -> Result<u16, EkkoError> {
         match self {
 
-            Self::V4(buffer) | Self::V6(buffer) => {
-                let mut cursor = Cursor::new(buffer);
+            Self::V4(buf) | Self::V6(buf) => {
+                let mut cursor = Cursor::new(buf);
                 cursor.set_position(2);
                 Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
                     EkkoError::ResponseReadField("checksum", e.to_string())
@@ -68,12 +68,12 @@ impl<'a> EchoResponse<'a> {
     pub fn get_identifier(&self) -> Result<u16, EkkoError> {
         match self {
 
-            Self::V4(buffer) => {
+            Self::V4(buf) => {
                 match self.get_type()? {
 
                     0 => {
 
-                        let mut cursor = Cursor::new(buffer);
+                        let mut cursor = Cursor::new(buf);
                         cursor.set_position(4);
                         Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
                             EkkoError::ResponseReadField("identifier", e.to_string())
@@ -85,12 +85,12 @@ impl<'a> EchoResponse<'a> {
                 }
             }
 
-            Self::V6(buffer) => {
+            Self::V6(buf) => {
                 match self.get_type()? {
 
                     129 => {
 
-                        let mut cursor = Cursor::new(buffer);
+                        let mut cursor = Cursor::new(buf);
                         cursor.set_position(4);
                         Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
                             EkkoError::ResponseReadField("identifier", e.to_string())
@@ -107,12 +107,12 @@ impl<'a> EchoResponse<'a> {
     pub fn get_sequence(&self) -> Result<u16, EkkoError> {
         match self {
 
-            Self::V4(buffer) => {
+            Self::V4(buf) => {
                 match self.get_type()? {
 
                     0 => {
 
-                        let mut cursor = Cursor::new(buffer);
+                        let mut cursor = Cursor::new(buf);
                         cursor.set_position(6);
                         Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
                             EkkoError::ResponseReadField("sequence number", e.to_string())
@@ -124,12 +124,12 @@ impl<'a> EchoResponse<'a> {
                 }
             }
 
-            Self::V6(buffer) => {
+            Self::V6(buf) => {
                 match self.get_type()? {
 
                     129 => {
 
-                        let mut cursor = Cursor::new(buffer);
+                        let mut cursor = Cursor::new(buf);
                         cursor.set_position(6);
                         Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
                             EkkoError::ResponseReadField("sequence number", e.to_string())
@@ -146,7 +146,7 @@ impl<'a> EchoResponse<'a> {
     pub fn get_originator(&self) -> Result<EchoRequest<'a>, EkkoError> {
         match self {
 
-            Self::V4(buffer) => {
+            Self::V4(buf) => {
                 match self.get_type()? {
 
                     3 | 4 | 5 | 11 | 12 => (),
@@ -158,7 +158,7 @@ impl<'a> EchoResponse<'a> {
                     })
                 }
 
-                let mut cursor = Cursor::new(buffer);
+                let mut cursor = Cursor::new(buf);
                 cursor.set_position(8);
 
                 let header_octets = ((cursor.read_u8().map_err(|e| {
@@ -166,11 +166,11 @@ impl<'a> EchoResponse<'a> {
                 })? & 0x0F) * 4) as usize;
 
                 Ok(EchoRequest::V4({
-                    &(buffer[(8 + header_octets)..])
+                    &(buf[(8 + header_octets)..])
                 }))
             }
 
-            Self::V6(buffer) => {
+            Self::V6(buf) => {
                 match self.get_type()? {
 
                     1 | 2 | 3 | 4 => (),
@@ -183,7 +183,7 @@ impl<'a> EchoResponse<'a> {
                 }
 
                 Ok(EchoRequest::V6({
-                    &(buffer[48..])
+                    &(buf[48..])
                 }))
             }
         }
@@ -208,11 +208,11 @@ pub(crate) enum EchoRequest<'a> {
 }
 
 impl<'a> EchoRequest<'a> {
-    pub fn new(buffer: &'a mut [u8], idf: u16, seq: u16, src: SocketAddr, dst: SocketAddr) -> Result<EchoRequest, EkkoError> {
+    pub fn new(buf: &'a mut [u8], idf: u16, seq: u16, src: SocketAddr, dst: SocketAddr) -> Result<EchoRequest, EkkoError> {
         match (src, dst) {
 
-            (SocketAddr::V4(_), SocketAddr::V4(_)) => EchoRequest::new_ipv4(buffer, idf, seq),
-            (SocketAddr::V6(src), SocketAddr::V6(dst)) => EchoRequest::new_ipv6(buffer, idf, seq, &(src.ip().segments()), &(dst.ip().segments())),
+            (SocketAddr::V4(_), SocketAddr::V4(_)) => EchoRequest::new_ipv4(buf, idf, seq),
+            (SocketAddr::V6(src), SocketAddr::V6(dst)) => EchoRequest::new_ipv6(buf, idf, seq, &(src.ip().segments()), &(dst.ip().segments())),
             _ => Err(EkkoError::RequestIpMismatch { 
                 src: src.to_string(), 
                 dst: dst.to_string() 
@@ -220,8 +220,8 @@ impl<'a> EchoRequest<'a> {
         }
     }
 
-    fn new_ipv4(buffer: &'a mut [u8], idf: u16, seq: u16) -> Result<EchoRequest, EkkoError> {
-        let mut cursor = Cursor::new(buffer);
+    fn new_ipv4(buf: &'a mut [u8], idf: u16, seq: u16) -> Result<EchoRequest, EkkoError> {
+        let mut cursor = Cursor::new(buf);
 
         fn checksum_v4(data: &[u8]) -> u16 {
             let mut sum: u32 = data.chunks(2).map(|chunk| match chunk {
@@ -275,8 +275,8 @@ impl<'a> EchoRequest<'a> {
         }))
     }
 
-    fn new_ipv6<'b>(buffer: &'a mut [u8], idf: u16, seq: u16, src: &'b [u16; 8], dst: &'b [u16; 8]) -> Result<EchoRequest<'a>, EkkoError> {
-        let mut cursor = Cursor::new(buffer);
+    fn new_ipv6<'b>(buf: &'a mut [u8], idf: u16, seq: u16, src: &'b [u16; 8], dst: &'b [u16; 8]) -> Result<EchoRequest<'a>, EkkoError> {
+        let mut cursor = Cursor::new(buf);
 
         fn checksum_v6(data: &[u8], src: &[u16; 8], dst: &[u16; 8]) -> u16 {
             fn sum_segments(segments: &[u16; 8]) -> u32 {
@@ -344,15 +344,15 @@ impl<'a> EchoRequest<'a> {
     pub fn as_slice(&self) -> &'a [u8] {
         match self {
 
-            Self::V4(buffer) | Self::V6(buffer) => buffer
+            Self::V4(buf) | Self::V6(buf) => buf
         }
     }
 
     pub fn get_type(&self) -> Result<u8, EkkoError> {
         match self {
 
-            Self::V4(buffer) | Self::V6(buffer) => {
-                let mut cursor = Cursor::new(buffer);
+            Self::V4(buf) | Self::V6(buf) => {
+                let mut cursor = Cursor::new(buf);
                 cursor.set_position(0);
                 Ok(cursor.read_u8().map_err(|e| {
                     EkkoError::RequestReadField("type", e.to_string())
@@ -364,8 +364,8 @@ impl<'a> EchoRequest<'a> {
     pub fn get_code(&self) -> Result<u8, EkkoError> {
         match self {
 
-            Self::V4(buffer) | Self::V6(buffer) => {
-                let mut cursor = Cursor::new(buffer);
+            Self::V4(buf) | Self::V6(buf) => {
+                let mut cursor = Cursor::new(buf);
                 cursor.set_position(1);
                 Ok(cursor.read_u8().map_err(|e| {
                     EkkoError::RequestReadField("code", e.to_string())
@@ -377,8 +377,8 @@ impl<'a> EchoRequest<'a> {
     pub fn get_checksum(&self) -> Result<u16, EkkoError> {
         match self {
 
-            Self::V4(buffer) | Self::V6(buffer) => {
-                let mut cursor = Cursor::new(buffer);
+            Self::V4(buf) | Self::V6(buf) => {
+                let mut cursor = Cursor::new(buf);
                 cursor.set_position(2);
                 Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
                     EkkoError::RequestReadField("checksum", e.to_string())
@@ -390,8 +390,8 @@ impl<'a> EchoRequest<'a> {
     pub fn get_identifier(&self) -> Result<u16, EkkoError> {
         match self {
 
-            Self::V4(buffer) | Self::V6(buffer) => {
-                let mut cursor = Cursor::new(buffer);
+            Self::V4(buf) | Self::V6(buf) => {
+                let mut cursor = Cursor::new(buf);
                 cursor.set_position(4);
                 Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
                     EkkoError::RequestReadField("identifier", e.to_string())
@@ -403,8 +403,8 @@ impl<'a> EchoRequest<'a> {
     pub fn get_sequence(&self) -> Result<u16, EkkoError> {
         match self {
 
-            Self::V4(buffer) | Self::V6(buffer) => {
-                let mut cursor = Cursor::new(buffer);
+            Self::V4(buf) | Self::V6(buf) => {
+                let mut cursor = Cursor::new(buf);
                 cursor.set_position(6);
                 Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
                     EkkoError::RequestReadField("sequence", e.to_string())
