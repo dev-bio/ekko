@@ -34,6 +34,10 @@ pub enum EkkoError {
     ResponseReadField(&'static str, String),
     #[error("Failed to read request field [{0}], reason: {1}")]
     RequestReadField(&'static str, String),
+    #[error("Failed to read request type [{0}], reason: {1}")]
+    RequestReadIcmpv4Type(&'static str, String),
+    #[error("Failed to read request type [{0}], reason: {1}")]
+    RequestReadIcmpv6Type(&'static str, String),
     #[error("Failed to write Icmpv4 request field [{0}], reason: {1}")]
     RequestWriteIcmpv4Field(&'static str, String),
     #[error("Failed to write Icmpv6 request field [{0}], reason: {1}")]

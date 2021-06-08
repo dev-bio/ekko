@@ -1,39 +1,64 @@
 use std::{
 
     cmp::{Ordering}, 
-    net::{IpAddr}, 
+
+    net::{
+        
+        Ipv4Addr,
+        IpAddr, 
+    },
     
     time::{
         
         Duration, 
         Instant,
-    },
+    }};
+
+use crate::{
+
+    packets::{EkkoPacket},
+    error::{EkkoError}, 
 };
 
-use crate::error::{EkkoError};
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum UnreachableCodeV4 {
-    CommunicationAdministrativelyProhibited,
-    NetworkAdministrativelyProhibited,
-    HostAdministrativelyProhibited,
-    DestinationProtocolUnreachable,
-    DestinationNetworkUnreachable,
-    DestinationHostUnreachable,
-    DestinationPortUnreachable,
-    DestinationNetworkUnknown,
-    HostPrecedenceViolation,
-    DestinationHostUnknown,
-    FragmentationRequired,
-    SourceHostIsolated,
-    NetworkUnreachable,
-    SourceRouteFailed,
-    PrecedenceCutoff,
-    HostUnreachable,
+    /// Contains next hops max transmission unit.
+    CommunicationAdministrativelyProhibited(u16),
+    /// Contains next hops max transmission unit.
+    NetworkAdministrativelyProhibited(u16),
+    /// Contains next hops max transmission unit.
+    HostAdministrativelyProhibited(u16),
+    /// Contains next hops max transmission unit.
+    DestinationProtocolUnreachable(u16),
+    /// Contains next hops max transmission unit.
+    DestinationNetworkUnreachable(u16),
+    /// Contains next hops max transmission unit.
+    DestinationHostUnreachable(u16),
+    /// Contains next hops max transmission unit.
+    DestinationPortUnreachable(u16),
+    /// Contains next hops max transmission unit.
+    DestinationNetworkUnknown(u16),
+    /// Contains next hops max transmission unit.
+    HostPrecedenceViolation(u16),
+    /// Contains next hops max transmission unit.
+    DestinationHostUnknown(u16),
+    /// Contains next hops max transmission unit.
+    FragmentationRequired(u16),
+    /// Contains next hops max transmission unit.
+    SourceHostIsolated(u16),
+    /// Contains next hops max transmission unit.
+    NetworkUnreachable(u16),
+    /// Contains next hops max transmission unit.
+    SourceRouteFailed(u16),
+    /// Contains next hops max transmission unit.
+    PrecedenceCutoff(u16),
+    /// Contains next hops max transmission unit.
+    HostUnreachable(u16),
+    /// Contains unexpected code.
     Unexpected(u8),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum UnreachableCodeV6 {
     CommunicationWithDestinationAdministrativelyProhibited,
     SourceAddressFailedIngressEgressPolicy,
@@ -43,49 +68,41 @@ pub enum UnreachableCodeV6 {
     NoRouteToDestination,
     AddressUnreachable,
     PortUnreachable,
+    /// Contains unexpected code.
     Unexpected(u8),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Unreachable {
     V4(UnreachableCodeV4),
     V6(UnreachableCodeV6),
 }
 
-#[derive(Clone, Debug)]
-pub enum ParameterProblemV4 {
-    Pointer,
-    Unexpected(u8),
-}
-
-#[derive(Clone, Debug)]
-pub enum ParameterProblemV6 {
-    UnrecognizedNextHeaderType,
-    ErroneousHeaderField,
-    UnrecognizedOption,
-    Unexpected(u8),
-}
-
-#[derive(Clone, Debug)]
-pub enum ParameterProblem {
-    V4(ParameterProblemV4),
-    V6(ParameterProblemV6),
-}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Redirect {
-    RedirectDatagramsForTypeServiceNetwork,
-    RedirectDatagramsForTypeServiceHost,
-    RedirectDatagramsForNetwork,
-    RedirectDatagramsForHost,
+    RedirectDatagramsForTypeServiceNetwork(Ipv4Addr),
+    RedirectDatagramsForTypeServiceHost(Ipv4Addr),
+    RedirectDatagramsForNetwork(Ipv4Addr),
+    RedirectDatagramsForHost(Ipv4Addr),
+    /// Contains unexpected code.
     Unexpected(u8),
 }
 
 #[derive(Clone, Debug, Eq)]
-pub struct EkkoData{
+pub struct EkkoData {
+    /// Timepoint for send.
     pub timepoint: Instant, 
+    /// Elapsed time since send.
     pub elapsed: Duration,
+
+    /// Responders address.
     pub address: Option<IpAddr>,
+
+    /// Echo requests identifier.
+    pub identifier: u16,
+    /// Echo requests sequence.
+    pub sequence: u16,
+    /// Number of hops.
     pub hops: u32,
 }
 
@@ -108,9 +125,8 @@ impl PartialEq for EkkoData {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum EkkoResponse {
-    ParameterProblem((EkkoData, ParameterProblem)),
     Unreachable((EkkoData, Unreachable)),
     PacketTooBig(EkkoData),
     SourceQuench(EkkoData),
@@ -122,49 +138,31 @@ pub enum EkkoResponse {
 }
 
 impl EkkoResponse {
-    pub (crate) fn new(net: (IpAddr, u32), detail: (u8, u8), time: (Instant, Duration)) -> Result<Self, EkkoError> {
-        let (echo_type, echo_code) = detail;
+    pub (crate) fn new(net: (IpAddr, u32), time: (Instant, Duration), packet: EkkoPacket) -> Result<Self, EkkoError> {
         let (timepoint, elapsed) = time;
         let (address, hops) = net;
 
         match address {
 
-            IpAddr::V4(_) => match echo_type {
+            IpAddr::V4(_) => match packet.get_type()? {
 
                 3 => {
-
-                    let unreachable_code = Unreachable::V4(match echo_code {
-                        0  => UnreachableCodeV4::DestinationNetworkUnreachable,
-                        1  => UnreachableCodeV4::DestinationHostUnreachable,
-                        2  => UnreachableCodeV4::DestinationProtocolUnreachable,
-                        3  => UnreachableCodeV4::DestinationPortUnreachable,
-                        4  => UnreachableCodeV4::FragmentationRequired,
-                        5  => UnreachableCodeV4::SourceRouteFailed,
-                        6  => UnreachableCodeV4::DestinationNetworkUnknown,
-                        7  => UnreachableCodeV4::DestinationHostUnknown,
-                        8  => UnreachableCodeV4::SourceHostIsolated,
-                        9  => UnreachableCodeV4::NetworkAdministrativelyProhibited,
-                        10 => UnreachableCodeV4::HostAdministrativelyProhibited,
-                        11 => UnreachableCodeV4::NetworkUnreachable,
-                        12 => UnreachableCodeV4::HostUnreachable,
-                        13 => UnreachableCodeV4::CommunicationAdministrativelyProhibited,
-                        14 => UnreachableCodeV4::HostPrecedenceViolation,
-                        15 => UnreachableCodeV4::PrecedenceCutoff,
-                        _ => UnreachableCodeV4::Unexpected(echo_code),
-                    });
 
                     Ok(EkkoResponse::Unreachable(({
 
                         EkkoData { 
 
-                            address: Some(address),
-                            hops,
-
                             timepoint, 
                             elapsed,
+                            
+                            address: Some(address),
+
+                            identifier: packet.get_identifier()?,
+                            sequence: packet.get_sequence()?,
+                            hops,
                         }
                         
-                    }, unreachable_code)))
+                    }, packet.get_unreachable()?)))
                 }
 
                 4 => {
@@ -173,37 +171,35 @@ impl EkkoResponse {
 
                         EkkoData { 
 
-                            address: Some(address),
-                            hops,
-
                             timepoint, 
                             elapsed,
+                            
+                            address: Some(address),
+
+                            identifier: packet.get_identifier()?,
+                            sequence: packet.get_sequence()?,
+                            hops,
                         }
                     }))
                 }
 
                 5 => {
 
-                    let redirect_code = match echo_code {
-                        0 => Redirect::RedirectDatagramsForNetwork,
-                        1 => Redirect::RedirectDatagramsForHost,
-                        2 => Redirect::RedirectDatagramsForTypeServiceNetwork,
-                        3 => Redirect::RedirectDatagramsForTypeServiceHost,
-                        _ => Redirect::Unexpected(echo_code),
-                    };
-
                     Ok(EkkoResponse::Redirect(({
 
                         EkkoData { 
 
-                            address: Some(address),
-                            hops,
-
                             timepoint, 
                             elapsed,
+                            
+                            address: Some(address),
+
+                            identifier: packet.get_identifier()?,
+                            sequence: packet.get_sequence()?,
+                            hops,
                         }
 
-                    }, redirect_code)))
+                    }, packet.get_redirect()?)))
                 }
 
                 11 => {
@@ -212,34 +208,16 @@ impl EkkoResponse {
 
                         EkkoData { 
 
-                            address: Some(address),
-                            hops,
-
                             timepoint, 
                             elapsed,
+                            
+                            address: Some(address),
+
+                            identifier: packet.get_identifier()?,
+                            sequence: packet.get_sequence()?,
+                            hops,
                         }
                     }))
-                }
-
-                12 => {
-                    
-                    let parameter_problem_code = ParameterProblem::V4(match echo_code {
-                        0 => ParameterProblemV4::Pointer,
-                        _ => ParameterProblemV4::Unexpected(echo_code),
-                    });
-
-                    Ok(EkkoResponse::ParameterProblem(({
-
-                        EkkoData { 
-
-                            address: Some(address),
-                            hops,
-
-                            timepoint, 
-                            elapsed,
-                        }
-
-                    }, parameter_problem_code)))
                 }
 
                 0 => {
@@ -248,62 +226,57 @@ impl EkkoResponse {
 
                         EkkoData { 
 
-                            address: Some(address),
-                            hops,
-
                             timepoint, 
                             elapsed,
+                            
+                            address: Some(address),
+
+                            identifier: packet.get_identifier()?,
+                            sequence: packet.get_sequence()?,
+                            hops,
                         }
                     }))
                 }
 
                 _ => {
 
-                    let unexpected = (echo_type, echo_code);
-
                     Ok(EkkoResponse::Unexpected(({
 
                         EkkoData { 
 
-                            address: Some(address),
-                            hops,
-
                             timepoint, 
                             elapsed,
+                            
+                            address: Some(address),
+
+                            identifier: packet.get_identifier()?,
+                            sequence: packet.get_sequence()?,
+                            hops,
                         }
 
-                    }, unexpected)))
+                    }, (packet.get_type()?, packet.get_code()?))))
                 }
             }
 
-            IpAddr::V6(_) => match echo_type {
+            IpAddr::V6(_) => match packet.get_type()? {
 
                 1 => {
-
-                    let unreachable_code = Unreachable::V6(match echo_code {
-                        0 => UnreachableCodeV6::NoRouteToDestination,
-                        1 => UnreachableCodeV6::CommunicationWithDestinationAdministrativelyProhibited,
-                        2 => UnreachableCodeV6::BeyondScopeOfSourceAddress,
-                        3 => UnreachableCodeV6::AddressUnreachable,
-                        4 => UnreachableCodeV6::PortUnreachable,
-                        5 => UnreachableCodeV6::SourceAddressFailedIngressEgressPolicy,
-                        6 => UnreachableCodeV6::RejectRouteToDestination,
-                        7 => UnreachableCodeV6::ErrorInSourceRoutingHeader,
-                        _ => UnreachableCodeV6::Unexpected(echo_code),
-                    });
 
                     Ok(EkkoResponse::Unreachable(({
 
                         EkkoData { 
 
-                            address: Some(address),
-                            hops,
-
                             timepoint, 
                             elapsed,
+                            
+                            address: Some(address),
+
+                            identifier: packet.get_identifier()?,
+                            sequence: packet.get_sequence()?,
+                            hops,
                         }
 
-                    }, unreachable_code)))
+                    }, packet.get_unreachable()?)))
                 }
 
                 2 => {
@@ -312,11 +285,14 @@ impl EkkoResponse {
 
                         EkkoData { 
 
-                            address: Some(address),
-                            hops,
-
                             timepoint, 
                             elapsed,
+                            
+                            address: Some(address),
+
+                            identifier: packet.get_identifier()?,
+                            sequence: packet.get_sequence()?,
+                            hops,
                         }
                     }))
                 }
@@ -327,36 +303,16 @@ impl EkkoResponse {
 
                         EkkoData { 
 
-                            address: Some(address),
-                            hops,
-
                             timepoint, 
                             elapsed,
+                            
+                            address: Some(address),
+
+                            identifier: packet.get_identifier()?,
+                            sequence: packet.get_sequence()?,
+                            hops,
                         }
                     }))
-                }
-
-                4 => {
-
-                    let parameter_problem_code = ParameterProblem::V6(match echo_code {
-                        0 => ParameterProblemV6::ErroneousHeaderField,
-                        1 => ParameterProblemV6::UnrecognizedNextHeaderType,
-                        2 => ParameterProblemV6::UnrecognizedOption,
-                        _ => ParameterProblemV6::Unexpected(echo_code),
-                    });
-
-                    Ok(EkkoResponse::ParameterProblem(({
-
-                        EkkoData { 
-
-                            address: Some(address),
-                            hops,
-
-                            timepoint, 
-                            elapsed,
-                        }
-
-                    }, parameter_problem_code)))
                 }
 
                 129 => {
@@ -365,31 +321,35 @@ impl EkkoResponse {
 
                         EkkoData { 
 
-                            address: Some(address),
-                            hops,
-
                             timepoint, 
                             elapsed,
+                            
+                            address: Some(address),
+
+                            identifier: packet.get_identifier()?,
+                            sequence: packet.get_sequence()?,
+                            hops,
                         }
                     }))
                 }
 
                 _ => {
 
-                    let unexpected = (echo_type, echo_code);
-
                     Ok(EkkoResponse::Unexpected(({
 
                         EkkoData { 
 
-                            address: Some(address),
-                            hops,
-
                             timepoint, 
                             elapsed,
+                            
+                            address: Some(address),
+
+                            identifier: packet.get_identifier()?,
+                            sequence: packet.get_sequence()?,
+                            hops,
                         }
 
-                    }, unexpected)))
+                    }, (packet.get_type()?, packet.get_code()?))))
                 }
             }
         }

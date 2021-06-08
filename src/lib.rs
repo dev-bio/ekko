@@ -1,7 +1,7 @@
 //! Ekko aims to be a light utility for sending echo requests; currently in its early stages.
 //!
 //! ## Example
-//! ```rust,no_run
+//! ```rust
 //! use ekko::{ 
 //!
 //!     error::{EkkoError},
@@ -11,10 +11,10 @@
 //! };
 //! 
 //! fn main() -> Result<(), EkkoError> {
-//!     let mut sender = Ekko::with_target(([8, 8, 8, 8], 0))?;
+//!     let sender = Ekko::with_target(([8, 8, 8, 8], 0))?;
 //! 
-//!     for hops in 0..64 {
-//!         let responses = sender.send_range(0..(hops))?;
+//!     for hops in 0..32 {
+//!         let responses = sender.send_range(0..hops)?;
 //!         for ekko in responses.iter() {
 //!             match ekko {
 //! 
@@ -26,7 +26,7 @@
 //!                     return Ok(()) 
 //!                 }
 //! 
-//!                 _ => continue
+//!                 ekko => continue
 //!             }
 //!         }
 //!     }
@@ -47,10 +47,6 @@ pub use responses::{
     UnreachableCodeV6,
     UnreachableCodeV4,
     Unreachable,
-
-    ParameterProblemV6,
-    ParameterProblemV4,
-    ParameterProblem,
 
     Redirect,
 
