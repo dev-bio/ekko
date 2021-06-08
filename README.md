@@ -36,7 +36,7 @@ use ekko::{
 };
 
 fn main() -> Result<(), EkkoError> {
-    let mut sender = Ekko::with_target([8, 8, 8, 8])?;
+    let sender = Ekko::with_target([8, 8, 8, 8])?;
 
     for hops in 0..32 {
         let responses = sender.send_range(0..hops)?;
