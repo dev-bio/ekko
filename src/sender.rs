@@ -57,11 +57,11 @@ pub struct Ekko {
 impl Ekko {
 
     /// Build a sender with given target address.
-    pub fn with_target<T: Into<SocketAddr>>(target: T) -> Result<Ekko, EkkoError> {
-        let target: SocketAddr = target.into();
-        let result = match target.ip() {
+    pub fn with_target<T: Into<IpAddr>>(target: T) -> Result<Ekko, EkkoError> {
+        let target: IpAddr = target.into();
+        let result = match target {
 
-            IpAddr::V4(_) => {
+            IpAddr::V4(target) => {
 
                 let source_address = SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), 0);
                 let socket = Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::ICMPV4)).map_err(|e| {
@@ -83,13 +83,15 @@ impl Ekko {
                 Ekko {
 
                     source_socket_address: SocketAddr::V4(source_address),
-                    target_socket_address: target,
+                    target_socket_address: SocketAddr::V4({
+                        SocketAddrV4::new(target, 0)
+                    }),
 
                     socket: socket,
                 }
             }
 
-            IpAddr::V6(_) => {
+            IpAddr::V6(target) => {
 
                 let source_address = SocketAddrV6::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0), 0, 0, 0);
                 let socket = Socket::new(Domain::IPV6, Type::RAW, Some(Protocol::ICMPV6)).map_err(|e| {
@@ -111,7 +113,9 @@ impl Ekko {
                 Ekko {
 
                     source_socket_address: SocketAddr::V6(source_address),
-                    target_socket_address: target,
+                    target_socket_address: SocketAddr::V6({
+                        SocketAddrV6::new(target, 0, 0, 0)
+                    }),
 
                     socket: socket,
                 }
@@ -252,8 +256,6 @@ impl Ekko {
                         IpAddr::V4(_) => EkkoPacket::V4(&(buf[header_octets..])),
                         IpAddr::V6(_) => EkkoPacket::V6(&(buf[..])),
                     };
-
-                    
 
                     match (request_identifier.clone(), request_sequence.clone()) {
 

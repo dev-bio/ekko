@@ -11,7 +11,7 @@
 //! };
 //! 
 //! fn main() -> Result<(), EkkoError> {
-//!     let sender = Ekko::with_target(([8, 8, 8, 8], 0))?;
+//!     let sender = Ekko::with_target([8, 8, 8, 8])?;
 //! 
 //!     for hops in 0..32 {
 //!         let responses = sender.send_range(0..hops)?;
