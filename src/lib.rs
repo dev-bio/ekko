@@ -1,7 +1,7 @@
 //! Ekko aims to be a light utility for sending echo requests; currently in its early stages.
 //!
 //! ## Example
-//! ```rust
+//! ```rust,no_run
 //! use ekko::{ 
 //!
 //!     error::{EkkoError},

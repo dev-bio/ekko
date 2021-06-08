@@ -38,8 +38,8 @@ use ekko::{
 fn main() -> Result<(), EkkoError> {
     let mut sender = Ekko::with_target(([8, 8, 8, 8], 0))?;
 
-    for hops in 0..64 {
-        let responses = sender.send_range(0..(hops))?;
+    for hops in 0..32 {
+        let responses = sender.send_range(0..hops)?;
         for ekko in responses.iter() {
             match ekko {
 
