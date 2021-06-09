@@ -23,37 +23,37 @@ use crate::{
 #[derive(Clone, Debug, PartialEq)]
 pub enum UnreachableCodeV4 {
     /// Contains next hops max transmission unit.
-    CommunicationAdministrativelyProhibited(u16),
+    CommunicationAdministrativelyProhibited,
     /// Contains next hops max transmission unit.
-    NetworkAdministrativelyProhibited(u16),
+    NetworkAdministrativelyProhibited,
     /// Contains next hops max transmission unit.
-    HostAdministrativelyProhibited(u16),
+    HostAdministrativelyProhibited,
     /// Contains next hops max transmission unit.
-    DestinationProtocolUnreachable(u16),
+    DestinationProtocolUnreachable,
     /// Contains next hops max transmission unit.
-    DestinationNetworkUnreachable(u16),
+    DestinationNetworkUnreachable,
     /// Contains next hops max transmission unit.
-    DestinationHostUnreachable(u16),
+    DestinationHostUnreachable,
     /// Contains next hops max transmission unit.
-    DestinationPortUnreachable(u16),
+    DestinationPortUnreachable,
     /// Contains next hops max transmission unit.
-    DestinationNetworkUnknown(u16),
+    DestinationNetworkUnknown,
     /// Contains next hops max transmission unit.
-    HostPrecedenceViolation(u16),
+    HostPrecedenceViolation,
     /// Contains next hops max transmission unit.
-    DestinationHostUnknown(u16),
+    DestinationHostUnknown,
     /// Contains next hops max transmission unit.
     FragmentationRequired(u16),
     /// Contains next hops max transmission unit.
-    SourceHostIsolated(u16),
+    SourceHostIsolated,
     /// Contains next hops max transmission unit.
-    NetworkUnreachable(u16),
+    NetworkUnreachable,
     /// Contains next hops max transmission unit.
-    SourceRouteFailed(u16),
+    SourceRouteFailed,
     /// Contains next hops max transmission unit.
-    PrecedenceCutoff(u16),
+    PrecedenceCutoff,
     /// Contains next hops max transmission unit.
-    HostUnreachable(u16),
+    HostUnreachable,
     /// Contains unexpected code.
     Unexpected(u8),
 }
