@@ -22,37 +22,22 @@ use crate::{
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum UnreachableCodeV4 {
-    /// Contains next hops max transmission unit.
     CommunicationAdministrativelyProhibited,
-    /// Contains next hops max transmission unit.
     NetworkAdministrativelyProhibited,
-    /// Contains next hops max transmission unit.
     HostAdministrativelyProhibited,
-    /// Contains next hops max transmission unit.
     DestinationProtocolUnreachable,
-    /// Contains next hops max transmission unit.
     DestinationNetworkUnreachable,
-    /// Contains next hops max transmission unit.
     DestinationHostUnreachable,
-    /// Contains next hops max transmission unit.
     DestinationPortUnreachable,
-    /// Contains next hops max transmission unit.
     DestinationNetworkUnknown,
-    /// Contains next hops max transmission unit.
     HostPrecedenceViolation,
-    /// Contains next hops max transmission unit.
     DestinationHostUnknown,
     /// Contains next hops max transmission unit.
     FragmentationRequired(u16),
-    /// Contains next hops max transmission unit.
     SourceHostIsolated,
-    /// Contains next hops max transmission unit.
     NetworkUnreachable,
-    /// Contains next hops max transmission unit.
     SourceRouteFailed,
-    /// Contains next hops max transmission unit.
     PrecedenceCutoff,
-    /// Contains next hops max transmission unit.
     HostUnreachable,
     /// Contains unexpected code.
     Unexpected(u8),
