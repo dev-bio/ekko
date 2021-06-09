@@ -366,7 +366,7 @@ impl<'a> EkkoPacket<'a> {
 
                         cursor.set_position(4);
                         cursor.read_exact(&mut octets).map_err(|e| {
-                            EkkoError::ResponseReadField("address octet: 0", e.to_string())
+                            EkkoError::ResponseReadField("address", e.to_string())
                         })?;
 
                         Ok(match self.get_code()? {
