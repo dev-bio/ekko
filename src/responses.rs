@@ -91,9 +91,10 @@ pub struct EkkoData {
     pub hops: u32,
 }
 
-impl Ord for EkkoData {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.hops.cmp(&(other.hops))
+impl PartialEq for EkkoData {
+    fn eq(&self, other: &Self) -> bool {
+        self.address.eq(&(other.address)) &&
+        self.hops.eq(&(other.hops))
     }
 }
 
@@ -103,10 +104,9 @@ impl PartialOrd for EkkoData {
     }
 }
 
-impl PartialEq for EkkoData {
-    fn eq(&self, other: &Self) -> bool {
-        self.address.eq(&(other.address)) &&
-        self.hops.eq(&(other.hops))
+impl Ord for EkkoData {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.hops.cmp(&(other.hops))
     }
 }
 

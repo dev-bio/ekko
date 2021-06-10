@@ -46,6 +46,29 @@ use super::{
     },
 };
 
+/// Take a look at the default implementation.
+pub struct EkkoSettings {
+    
+    pub identifier: u16,
+    pub sequence: u16,
+    
+    pub timeout: Duration,
+}
+
+impl Default for EkkoSettings {
+    fn default() -> EkkoSettings {
+        EkkoSettings {
+
+            identifier: rand::random(),
+            sequence: 0,
+
+            timeout: {
+                Duration::from_millis(1000)
+            },
+        }
+    }
+}
+
 pub struct Ekko {
 
     source_socket_address: SocketAddr,
@@ -125,15 +148,15 @@ impl Ekko {
         Ok(result)
     }
 
-    /// Send an echo request with a default timeout of 1 second.
+    /// Send an echo request with default settings.
     pub fn send(&mut self, hops: u32) -> Result<EkkoResponse, EkkoError> {
-        self.send_with_timeout(hops, Duration::from_millis(1000))
+        self.send_with_settings(hops, Default::default())
     }
 
-    /// Send an echo request with or with the specified timeout.
-    pub fn send_with_timeout(&self, hops: u32, timeout: Duration) -> Result<EkkoResponse, EkkoError> {
-        let identifier = rand::random();
-        let mut sequence = 0;
+    /// Send an echo request with user defined settings.
+    pub fn send_with_settings(&self, hops: u32, EkkoSettings { 
+        timeout, identifier, mut sequence 
+    }: EkkoSettings) -> Result<EkkoResponse, EkkoError> {
 
         let timepoint = Instant::now();
 
@@ -164,8 +187,9 @@ impl Ekko {
 
                 EkkoData { 
 
-                    timepoint: timepoint.clone(), 
-                    elapsed: timepoint.elapsed(),
+                    timepoint: timepoint, 
+                    elapsed: timepoint
+                        .elapsed(),
 
                     address: None,
                     
@@ -180,38 +204,28 @@ impl Ekko {
         Ok(result)
     }
 
-    /// Send echo requests for all hops in range at the same time with a default timeout of 1 second.
+    /// Send echo requests for all hops in range with default settings.
     pub fn send_range(&self, hops: Range<u32>) -> Result<Vec<EkkoResponse>, EkkoError> {
-        self.send_range_with_timeout(hops, Duration::from_millis(1000))
+        self.send_range_with_settings(hops, Default::default())
     }
 
-    /// Send echo requests for all hops in range at the same time with the specified timeout and a random identifier.
-    pub fn send_range_with_timeout(&self, hops: Range<u32>, timeout: Duration) -> Result<Vec<EkkoResponse>, EkkoError> {
-        self.send_range_with_identifier_and_timeout(hops, rand::random(), timeout)
-    }
+    /// Send echo requests for all hops in range with user defined settings.
+    pub fn send_range_with_settings(&self, hops: Range<u32>, EkkoSettings { 
+        timeout, identifier, mut sequence 
+    }: EkkoSettings) -> Result<Vec<EkkoResponse>, EkkoError> {
 
-    /// Send echo requests for all hops in range at the same time with the specified identifier and a default timeout of 1 second.
-    pub fn send_range_with_identifier(&self, hops: Range<u32>, identifier: u16) -> Result<Vec<EkkoResponse>, EkkoError> {
-        self.send_range_with_identifier_and_timeout(hops, identifier, Duration::from_millis(1000))
-    }
-
-    /// Send echo requests for all hops in range at the same time with specified identifier and timeout.
-    pub fn send_range_with_identifier_and_timeout(&self, hops: Range<u32>, identifier: u16, timeout: Duration) -> Result<Vec<EkkoResponse>, EkkoError> {
         let mut echo_responses = Vec::with_capacity(hops.len());
         let mut echo_requests = Vec::with_capacity(hops.len());
         let mut echo_route = Vec::with_capacity(hops.len());
-        let mut sequence = 0;
         
         let timepoint = Instant::now();
 
         for hop in hops {
 
             self.inner_send(hop, (identifier, sequence))?;
+            
+            echo_requests.push((timepoint.clone(), identifier.clone(), sequence.clone(), hop.clone()));
             sequence = sequence.wrapping_add(1);
-
-            echo_requests.push({
-                (timepoint.clone(), identifier.clone(), sequence.clone(), hop.clone())
-            });
         }
 
         loop {
@@ -285,7 +299,8 @@ impl Ekko {
                             EkkoData { 
 
                                 timepoint: request_timepoint.clone(), 
-                                elapsed: request_timepoint.elapsed(),
+                                elapsed: request_timepoint
+                                    .elapsed(),
 
                                 address: None,
 

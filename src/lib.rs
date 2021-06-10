@@ -3,10 +3,9 @@
 //! ## Example
 //! ```rust,no_run
 //! use ekko::{ 
-//!
-//!     error::{EkkoError},
-//!
+//! 
 //!     EkkoResponse,
+//!     EkkoError,
 //!     Ekko,
 //! };
 //! 
@@ -38,9 +37,15 @@
 mod responses;
 mod packets;
 mod sender;
+mod error;
 
-pub use sender::{Ekko};
-pub mod error;
+pub use error::{EkkoError};
+
+pub use sender::{
+
+    EkkoSettings,
+    Ekko,
+};
 
 pub use responses::{
 
