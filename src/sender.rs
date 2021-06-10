@@ -155,13 +155,14 @@ impl Ekko {
 
     /// Send an echo request with user defined settings.
     pub fn send_with_settings(&self, hops: u32, EkkoSettings { 
-        timeout, identifier, mut sequence 
+        timeout, identifier, sequence 
     }: EkkoSettings) -> Result<EkkoResponse, EkkoError> {
 
         let timepoint = Instant::now();
 
-        self.inner_send(hops, (identifier, sequence))?;
-        sequence = sequence.wrapping_add(1);
+        self.inner_send(hops, {
+            (identifier, sequence)
+        })?;
 
         let result = loop {
 
