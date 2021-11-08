@@ -62,7 +62,7 @@ impl<'a> EkkoPacket<'a> {
             let mut sum: u32 = data.chunks(2).map(|chunk| match chunk {
                 
                 &[ .. , a, b ] => u16::from_be_bytes([a, b]) as u32,
-                &[ .. , a] => u16::from_be_bytes([a, 0]) as u32,
+                &[ .. , a ] => u16::from_be_bytes([a, 0]) as u32,
                 &[ .. ] => 0 as u32,
                 
             }).sum();
@@ -127,7 +127,7 @@ impl<'a> EkkoPacket<'a> {
             let mut sum: u32 = data.chunks(2).map(|chunk| match chunk {
                 
                 &[ .. , a, b ] => u16::from_be_bytes([a, b]) as u32,
-                &[ .. , a] => u16::from_be_bytes([a, 0]) as u32,
+                &[ .. , a ] => u16::from_be_bytes([a, 0]) as u32,
                 &[ .. ] => 0 as u32,
                 
             }).sum();
