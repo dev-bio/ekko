@@ -46,12 +46,22 @@ impl<'a> EkkoPacket<'a> {
     pub fn new(buf: &'a mut [u8], pkt: (u16, u16), net: (SocketAddr, SocketAddr)) -> Result<EkkoPacket, EkkoError> {
         match net {
 
-            (SocketAddr::V4(_), SocketAddr::V4(_)) => EkkoPacket::new_ipv4(buf, pkt),
-            (SocketAddr::V6(src), SocketAddr::V6(dst)) => EkkoPacket::new_ipv6(buf, pkt, (src.ip().segments(), dst.ip().segments())),
+            (SocketAddr::V4(_), SocketAddr::V4(_)) => {
+                EkkoPacket::new_ipv4(&mut buf[..], pkt)
+            },
+
+            (SocketAddr::V6(src), SocketAddr::V6(dst)) => {
+                let src_ip = src.ip();
+                let dst_ip = dst.ip();
+
+                EkkoPacket::new_ipv6(&mut buf[..], pkt, {
+                    (src_ip.segments(), dst_ip.segments())
+                })
+            },
+
             (src, dst) => Err(EkkoError::RequestIpMismatch { 
-                src: src.to_string(), 
-                dst: dst.to_string() 
-            })
+                src: src.to_string(), dst: dst.to_string() 
+            }),
         }
     }
 
@@ -96,11 +106,13 @@ impl<'a> EkkoPacket<'a> {
             EkkoError::RequestWriteIcmpv4Field("sequence", e.to_string())
         })?;
 
-        for _ in 0..36 {
-            cursor.write_u8(rand::random()).map_err(|e| {
-                EkkoError::RequestWriteIcmpv4Payload(e.to_string())
+        for data in ("Ekko, ekko, ekko ..").chars() {
+            cursor.write_u8(data as u8).map_err(|e| {
+                EkkoError::RequestWriteIcmpv6Payload(e.to_string())
             })?;
         }
+
+        let length = cursor.position();
 
         cursor.set_position(2);
         cursor.write_u16::<BigEndian>(checksum_v4(cursor.get_ref())).map_err(|e| {
@@ -108,7 +120,9 @@ impl<'a> EkkoPacket<'a> {
         })?;
         
         Ok(EkkoPacket::V4({
-            cursor.into_inner()
+            &(cursor.into_inner()[..({
+                length as usize
+            })])
         }))
     }
     
@@ -166,11 +180,13 @@ impl<'a> EkkoPacket<'a> {
             EkkoError::RequestWriteIcmpv6Field("sequence", e.to_string())
         })?;
 
-        for _ in 0..16 {
-            cursor.write_u8(rand::random()).map_err(|e| {
+        for data in ("Ekko, ekko, ekko ..").chars() {
+            cursor.write_u8(data as u8).map_err(|e| {
                 EkkoError::RequestWriteIcmpv6Payload(e.to_string())
             })?;
         }
+
+        let length = cursor.position();
 
         cursor.set_position(2);
         cursor.write_u16::<BigEndian>(checksum_v6(cursor.get_ref(), net)).map_err(|e| {
@@ -178,14 +194,17 @@ impl<'a> EkkoPacket<'a> {
         })?;
         
         Ok(EkkoPacket::V6({
-            cursor.into_inner()
+            &(cursor.into_inner()[..({
+                length as usize
+            })])
         }))
     }
-
+    
     pub fn as_slice(&self) -> &'a [u8] {
         match self {
 
-            Self::V4(buf) | Self::V6(buf) => buf
+            Self::V4(buf) => &(buf[..]),
+            Self::V6(buf) => &(buf[..]),
         }
     }
 

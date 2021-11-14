@@ -1,7 +1,13 @@
 use std::{
     
     ops::{Range}, 
-    io::{Cursor}, 
+    io::{Cursor},
+
+    time::{
+
+        Duration, 
+        Instant,
+    },
 
     net::{
 
@@ -16,12 +22,6 @@ use std::{
         Ipv4Addr, 
         IpAddr, 
     },   
-    
-    time::{
-
-        Duration, 
-        Instant,
-    }
 };
 
 use byteorder::{ReadBytesExt};
@@ -63,6 +63,7 @@ impl Default for EkkoSettings {
             sequence: 0,
 
             timeout: {
+
                 Duration::from_millis(1000)
             },
         }
@@ -81,8 +82,7 @@ impl Ekko {
 
     /// Build a sender with given target address.
     pub fn with_target<T: Into<IpAddr>>(target: T) -> Result<Ekko, EkkoError> {
-        let target: IpAddr = target.into();
-        let result = match target {
+        match target.into() {
 
             IpAddr::V4(target) => {
 
@@ -95,7 +95,7 @@ impl Ekko {
                     EkkoError::SocketSetNonBlocking(true, e.to_string())
                 })?;
 
-                socket.set_recv_buffer_size(512).map_err(|e| {
+                socket.set_recv_buffer_size(256).map_err(|e| {
                     EkkoError::SocketSetReceiveBufferSize(e.to_string())
                 })?;
 
@@ -103,7 +103,7 @@ impl Ekko {
                     EkkoError::SocketBindIpv4(source_address.to_string(), e.to_string())
                 })?;
                 
-                Ekko {
+                Ok(Ekko {
 
                     source_socket_address: SocketAddr::V4(source_address),
                     target_socket_address: SocketAddr::V4({
@@ -111,7 +111,7 @@ impl Ekko {
                     }),
 
                     socket: socket,
-                }
+                })
             }
 
             IpAddr::V6(target) => {
@@ -133,7 +133,7 @@ impl Ekko {
                     EkkoError::SocketBindIpv6(source_address.to_string(), e.to_string())
                 })?;
   
-                Ekko {
+                Ok(Ekko {
 
                     source_socket_address: SocketAddr::V6(source_address),
                     target_socket_address: SocketAddr::V6({
@@ -141,11 +141,9 @@ impl Ekko {
                     }),
 
                     socket: socket,
-                }
+                })
             }
-        };
-
-        Ok(result)
+        }
     }
 
     /// Send an echo request with default settings.
@@ -158,6 +156,10 @@ impl Ekko {
         timeout, identifier, sequence 
     }: EkkoSettings) -> Result<EkkoResponse, EkkoError> {
 
+        let mut buf: [u8; 256] = {
+            [0; 256]
+        };
+
         let timepoint = Instant::now();
 
         self.inner_send(hops, {
@@ -166,10 +168,8 @@ impl Ekko {
 
         let result = loop {
 
-            let mut buf: [u8; 512] = [0; 512];
-
             let identifier = identifier;
-            if let Some((address, packet)) = self.inner_recv(&mut buf[..])? {
+            if let Some((address, packet)) = self.inner_recv(&mut buf)? {
                 if identifier == packet.get_identifier()? {
                     if sequence == packet.get_sequence()? {
                         let time = (timepoint.clone(), timepoint.elapsed());
@@ -215,26 +215,31 @@ impl Ekko {
         timeout, identifier, mut sequence 
     }: EkkoSettings) -> Result<Vec<EkkoResponse>, EkkoError> {
 
+        let mut buf: [u8; 256] = {
+            [0; 256]
+        };
+        
         let mut echo_responses = Vec::with_capacity(hops.len());
         let mut echo_requests = Vec::with_capacity(hops.len());
         let mut echo_route = Vec::with_capacity(hops.len());
-        
+
         let timepoint = Instant::now();
-
+        
         for hop in hops {
-
-            self.inner_send(hop, (identifier, sequence))?;
+            
+            self.inner_send(hop, {
+                (identifier, sequence)
+            })?;
             
             echo_requests.push((timepoint.clone(), identifier.clone(), sequence.clone(), hop.clone()));
             sequence = sequence.wrapping_add(1);
         }
-
+        
         loop {
 
-            let mut buf: [u8; 512] = [0; 512];
-            if let Some((address, response)) = self.inner_recv(&mut buf[..])? {
+            if let Some((address, response)) = self.inner_recv(&mut buf)? {
                 for (request_timepoint, request_identifier, request_sequence, _) 
-                    in &(echo_requests) {
+                    in echo_requests.iter() {
 
                     match (request_identifier.clone(), request_sequence.clone()) {
 
@@ -256,20 +261,27 @@ impl Ekko {
             }
             
             for (request_timepoint, request_identifier, request_sequence, request_hops) 
-                in &(echo_requests) {
+                in echo_requests.iter() {
 
                 let previous_route_length = echo_route.len();
                 for (response_address, response_timepoint, response_elapsed, buf) 
-                    in &(echo_responses) {
-
-                    let mut cursor = Cursor::new(buf.as_slice());
-                    let header_octets = ((cursor.read_u8().map_err(|e| {
-                        EkkoError::ResponseReadField("internet protocol header size", e.to_string())
-                    })? & 0x0F) * 4) as usize;
+                    in echo_responses.iter() {
 
                     let packet = match response_address {
-                        IpAddr::V4(_) => EkkoPacket::V4(&(buf[header_octets..])),
-                        IpAddr::V6(_) => EkkoPacket::V6(&(buf[..])),
+                        IpAddr::V4(_) => {
+
+                            let mut cursor = Cursor::new(buf.as_slice());
+                            let header_octets = ((cursor.read_u8().map_err(|e| {
+                                EkkoError::ResponseReadField("internet protocol header size", e.to_string())
+                            })? & 0x0F) * 4) as usize;
+
+                            EkkoPacket::V4(&(buf[header_octets..]))
+                        },
+
+                        IpAddr::V6(_) => {
+
+                            EkkoPacket::V6(&(buf[..]))
+                        },
                     };
 
                     match (request_identifier.clone(), request_sequence.clone()) {
@@ -320,33 +332,48 @@ impl Ekko {
     }
 
     fn inner_send(&self, hops: u32, pkt: (u16, u16)) -> Result<(), EkkoError> {
-        match (self.source_socket_address, self.target_socket_address) {
+        let mut buf: [u8; 128] = [0; 128];
+        let request = EkkoPacket::new(&mut buf[..], pkt, {
+            (self.source_socket_address, self.target_socket_address)
+        })?;
 
-            (SocketAddr::V6(_), SocketAddr::V6(_)) => {
-                self.socket.set_unicast_hops_v6(hops).map_err(|e| {
-                    EkkoError::SocketSetMaxHopsIpv6(e.to_string())
-                })?;
-            }
+        match (self.source_socket_address, self.target_socket_address) {
 
             (SocketAddr::V4(_), SocketAddr::V4(_)) => {
                 self.socket.set_ttl(hops).map_err(|e| {
-                    EkkoError::SocketSetMaxHopsIpv4(e.to_string())
+                    EkkoError::SocketSetMaxHopsIpv4({
+                        e.to_string()
+                    })
                 })?;
-            }
+
+                self.socket.send_to(request.as_slice(), {
+                    &(self.target_socket_address.into())
+                }).map_err(|e|  EkkoError::SocketSendIcmpv4({
+                    e.to_string()
+                }))?;
+            },
+
+            (SocketAddr::V6(_), SocketAddr::V6(_)) => {
+                self.socket.set_unicast_hops_v6(hops).map_err(|e| {
+                    EkkoError::SocketSetMaxHopsIpv6({
+                        e.to_string()
+                    })
+                })?;
+
+                self.socket.send_to(request.as_slice(), {
+                    &(self.target_socket_address.into())
+                }).map_err(|e| EkkoError::SocketSendIcmpv6({
+                    e.to_string()
+                }))?;
+            },
 
             (src, dst) => {
                 return Err(EkkoError::SocketIpMismatch { 
                     src: src.to_string(), 
                     dst: dst.to_string() 
                 })
-            }
+            },
         };
-
-        let mut buf: [u8; 512] = [0; 512];
-        let request = EkkoPacket::new(&mut buf[..], pkt, (self.source_socket_address, self.target_socket_address))?;
-        self.socket.send_to(request.as_slice(), &(self.target_socket_address.into())).map_err(|e| {
-            EkkoError::SocketSend(e.to_string())
-        })?;
 
         Ok(())
     }
@@ -360,25 +387,27 @@ impl Ekko {
             let responding_address = match self.source_socket_address {
 
                 SocketAddr::V4(_) => IpAddr::V4(responder.as_socket_ipv4()
-                    .ok_or(EkkoError::SocketReceiveNoIpv4)?.ip().clone()),
+                    .ok_or(EkkoError::SocketReceiveNoIpv4)?.ip()
+                    .clone()),
                     
                 SocketAddr::V6(_) => IpAddr::V6(responder.as_socket_ipv6()
-                    .ok_or(EkkoError::SocketReceiveNoIpv6)?.ip().clone()),
+                    .ok_or(EkkoError::SocketReceiveNoIpv6)?.ip()
+                    .clone()),
             };
-
-            let mut cursor = Cursor::new(buf.as_ref());
-            let header_octets = ((cursor.read_u8().map_err(|e| {
-                EkkoError::ResponseReadField("internet protocol header size", e.to_string())
-            })? & 0x0F) * 4) as usize;
 
             match responding_address {
 
                 IpAddr::V4(_) => Ok(Some((responding_address, {
-                    EkkoPacket::V4(&buf[header_octets..])
+                    let mut cursor = Cursor::new(&mut buf[..]);
+                    let header_octets = ((cursor.read_u8().map_err(|e| {
+                        EkkoError::ResponseReadField("internet protocol header size", e.to_string())
+                    })? & 0x0F) * 4) as usize;
+
+                    EkkoPacket::V4(&(buf[header_octets..]))
                 }))),
 
                 IpAddr::V6(_) => Ok(Some((responding_address, {
-                    EkkoPacket::V6(&buf[..])
+                    EkkoPacket::V6(&(buf[..]))
                 }))),
             }
         }
