@@ -52,7 +52,6 @@ pub use responses::{
     UnreachableCodeV6,
     UnreachableCodeV4,
     Unreachable,
-
     Redirect,
 
     EkkoResponse,
