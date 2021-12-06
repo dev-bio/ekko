@@ -493,3 +493,49 @@ impl<'a> Debug for EkkoPacket<'a> {
             .finish()
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::{EkkoPacket};
+    use crate::{EkkoError};
+
+    #[test]
+    fn parse_v4() -> Result<(), EkkoError> {
+        let expected = b"\x0B\x00\xF4\xFF\x00\x00\x00\x00\x45\x60\x00\x2F\x61\x91\x00\x00\x01\x01\x3D\xC6\x00\x00\x00\x00\x08\x08\x08\x08\x08\x00\xF3\x52\x0B\xAD\x00\x01\x45\x6B\x6B\x6F\x2C\x20\x65\x6B\x6B\x6F\x2C\x20\x65\x6B\x6B\x6F\x20\x2E\x2E";
+        let packet = EkkoPacket::V4(expected);
+
+        assert_eq!(packet.get_identifier()?, 0xBAD);
+        assert_eq!(packet.get_checksum()?, 0xF4FF);
+        assert_eq!(packet.get_type()?, 11);
+        assert_eq!(packet.get_code()?, 0);
+
+        let originating_packet = packet.get_originator()?;
+
+        assert_eq!(originating_packet.get_identifier()?, 0xBAD);
+        assert_eq!(originating_packet.get_checksum()?, 0xF352);
+        assert_eq!(originating_packet.get_type()?, 8);
+        assert_eq!(originating_packet.get_code()?, 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_v6() -> Result<(), EkkoError> {
+        let expected = b"\x03\x00\xb9\x6d\x00\x00\x00\x00\x60\x00\x00\x00\x00\x1b\x3a\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x00\xd5\xd8\x0b\xad\x00\x01\x45\x6b\x6b\x6f\x2c\x20\x65\x6b\x6b\x6f\x2c\x20\x65\x6b\x6b\x6f\x20\x2e\x2e";
+        let packet = EkkoPacket::V6(expected);
+
+        assert_eq!(packet.get_identifier()?, 0xBAD);
+        assert_eq!(packet.get_checksum()?, 0xB96D);
+        assert_eq!(packet.get_type()?, 3);
+        assert_eq!(packet.get_code()?, 0);
+
+        let originating_packet = packet.get_originator()?;
+
+        assert_eq!(originating_packet.get_identifier()?, 0xBAD);
+        assert_eq!(originating_packet.get_checksum()?, 0xD5D8);
+        assert_eq!(originating_packet.get_type()?, 128);
+        assert_eq!(originating_packet.get_code()?, 0);
+
+        Ok(())
+    }
+}
