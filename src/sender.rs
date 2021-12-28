@@ -147,7 +147,7 @@ impl Ekko {
     }
 
     /// Send an echo request with default settings.
-    pub fn send(&mut self, hops: u32) -> Result<EkkoResponse, EkkoError> {
+    pub fn send(&self, hops: u32) -> Result<EkkoResponse, EkkoError> {
         self.send_with_settings(hops, Default::default())
     }
 
