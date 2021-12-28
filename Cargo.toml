@@ -1,8 +1,8 @@
 [package]
 name = "ekko"
-version = "0.7.1"
-authors = ["André Kristiansen"]
-description = "Ekko is a simple and light utility for sending echo requests, built upon raw sockets."
+version = "0.7.2"
+authors = ["André Storfjord Kristiansen"]
+description = "Ekko is a simple and light utility for sending echo requests."
 repository = "https://github.com/dev-bio/ekko"
 homepage = "https://github.com/dev-bio/ekko"
 readme = "README.md"

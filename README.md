@@ -6,7 +6,7 @@
 
 __Echo Request Utility__
 
-[![dependency status](https://deps.rs/crate/ekko/0.7.1/status.svg)](https://deps.rs/crate/ekko/0.7.1)
+[![dependency status](https://deps.rs/crate/ekko/0.7.2/status.svg)](https://deps.rs/crate/ekko/0.7.2)
 [![Documentation](https://docs.rs/ekko/badge.svg)](https://docs.rs/ekko)
 [![License](https://img.shields.io/crates/l/ekko.svg)](https://choosealicense.com/licenses/mit/)
 
@@ -21,7 +21,7 @@ To use `ekko`, add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-ekko = "0.7.1"
+ekko = "0.7.2"
 ```
 
 ## Example
