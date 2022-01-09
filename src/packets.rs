@@ -213,6 +213,7 @@ impl<'a> EkkoPacket<'a> {
 
             Self::V4(buf) | Self::V6(buf) => {
                 let mut cursor = Cursor::new(buf);
+                
                 cursor.set_position(0);
                 Ok(cursor.read_u8().map_err(|e| {
                     EkkoError::ResponseReadField("type", e.to_string())
@@ -226,6 +227,7 @@ impl<'a> EkkoPacket<'a> {
 
             Self::V4(buf) | Self::V6(buf) => {
                 let mut cursor = Cursor::new(buf);
+
                 cursor.set_position(1);
                 Ok(cursor.read_u8().map_err(|e| {
                     EkkoError::ResponseReadField("code", e.to_string())
@@ -239,6 +241,7 @@ impl<'a> EkkoPacket<'a> {
 
             Self::V4(buf) | Self::V6(buf) => {
                 let mut cursor = Cursor::new(buf);
+
                 cursor.set_position(2);
                 Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
                     EkkoError::ResponseReadField("checksum", e.to_string())
@@ -256,6 +259,7 @@ impl<'a> EkkoPacket<'a> {
                     8 | 0 => {
 
                         let mut cursor = Cursor::new(buf);
+
                         cursor.set_position(4);
                         Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
                             EkkoError::ResponseReadField("identifier", e.to_string())
@@ -273,6 +277,7 @@ impl<'a> EkkoPacket<'a> {
                     128 | 129 => {
 
                         let mut cursor = Cursor::new(buf);
+
                         cursor.set_position(4);
                         Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
                             EkkoError::ResponseReadField("identifier", e.to_string())
@@ -295,6 +300,7 @@ impl<'a> EkkoPacket<'a> {
                     8 | 0 => {
 
                         let mut cursor = Cursor::new(buf);
+
                         cursor.set_position(6);
                         Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
                             EkkoError::ResponseReadField("sequence number", e.to_string())
@@ -312,6 +318,7 @@ impl<'a> EkkoPacket<'a> {
                     128 | 129 => {
 
                         let mut cursor = Cursor::new(buf);
+
                         cursor.set_position(6);
                         Ok(cursor.read_u16::<BigEndian>().map_err(|e| {
                             EkkoError::ResponseReadField("sequence number", e.to_string())
@@ -334,8 +341,8 @@ impl<'a> EkkoPacket<'a> {
                     3 | 4 | 5 | 11 | 12 => {
 
                         let mut cursor = Cursor::new(buf);
-                        cursor.set_position(8);
 
+                        cursor.set_position(8);
                         let header_octets = ((cursor.read_u8().map_err(|e| {
                             EkkoError::ResponseReadField("internet protocol header size", e.to_string())
                         })? & 0x0F) * 4) as usize;
@@ -422,18 +429,19 @@ impl<'a> EkkoPacket<'a> {
 
                     3 => {
 
-                        let mut cursor = Cursor::new(buf);
-                        cursor.set_position(6);
-                        let value = cursor.read_u16::<BigEndian>().map_err(|e| {
-                            EkkoError::ResponseReadField("problem pointer", e.to_string())
-                        })?;
-
                         Ok(Unreachable::V4(match self.get_code()? {
                             0  => UnreachableCodeV4::DestinationNetworkUnreachable,
                             1  => UnreachableCodeV4::DestinationHostUnreachable,
                             2  => UnreachableCodeV4::DestinationProtocolUnreachable,
                             3  => UnreachableCodeV4::DestinationPortUnreachable,
-                            4  => UnreachableCodeV4::FragmentationRequired(value),
+                            4  => UnreachableCodeV4::FragmentationRequired({
+                                let mut cursor = Cursor::new(buf);
+                                
+                                cursor.set_position(6);
+                                cursor.read_u16::<BigEndian>().map_err(|e| {
+                                    EkkoError::ResponseReadField("problem pointer", e.to_string())
+                                })?
+                            }),
                             5  => UnreachableCodeV4::SourceRouteFailed,
                             6  => UnreachableCodeV4::DestinationNetworkUnknown,
                             7  => UnreachableCodeV4::DestinationHostUnknown,
