@@ -208,6 +208,15 @@ impl<'a> EkkoPacket<'a> {
         }
     }
 
+    pub fn is_echo_request(&self) -> Result<bool, EkkoError> {
+        Ok(self.get_type()? == 128 || self.get_type()? == 8)
+    }
+
+    #[allow(dead_code)]
+    pub fn is_echo_response(&self) -> Result<bool, EkkoError> {
+        Ok(self.get_type()? == 129 || self.get_type()? == 0)
+    }
+
     pub fn get_type(&self) -> Result<u8, EkkoError> {
         match self {
 

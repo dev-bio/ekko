@@ -170,13 +170,17 @@ impl Ekko {
 
             let identifier = identifier;
             if let Some((address, packet)) = self.inner_recv(&mut buf)? {
-                if identifier == packet.get_identifier()? {
-                    if sequence == packet.get_sequence()? {
-                        let time = (timepoint.clone(), timepoint.elapsed());
-                        let net = (address.clone(), hops.clone());
+                if packet.is_echo_request()? {
+                    continue
+                }
 
-                        break EkkoResponse::new(net, time, packet)?;
-                    }
+                if identifier == packet.get_identifier()? && 
+                   sequence == packet.get_sequence()? {
+
+                    let time = (timepoint.clone(), timepoint.elapsed());
+                    let net = (address.clone(), hops.clone());
+
+                    break EkkoResponse::new(net, time, packet)?;
                 }
             }
 
@@ -237,13 +241,16 @@ impl Ekko {
         
         loop {
 
-            if let Some((address, response)) = self.inner_recv(&mut buf)? {
+            if let Some((address, packet)) = self.inner_recv(&mut buf)? {
+                if packet.is_echo_request()? {
+                    continue
+                }
+
                 for (request_timepoint, request_identifier, request_sequence, _) 
                     in echo_requests.iter() {
 
                     match (request_identifier.clone(), request_sequence.clone()) {
-
-                        x if x == (response.get_identifier()?, response.get_sequence()?) => echo_responses.push({
+                        x if x == (packet.get_identifier()?, packet.get_sequence()?) => echo_responses.push({
                             (address.clone(), request_timepoint.clone(), request_timepoint.elapsed(), buf.to_vec())
                         }),
                         
@@ -285,7 +292,6 @@ impl Ekko {
                     };
 
                     match (request_identifier.clone(), request_sequence.clone()) {
-
                         x if x == (packet.get_identifier()?, packet.get_sequence()?) => echo_route.push({
                             let time = (response_timepoint.clone(), response_elapsed.clone());
                             let net = (response_address.clone(), request_hops.clone());
