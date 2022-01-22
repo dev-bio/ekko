@@ -19,7 +19,7 @@
 //! 
 //!                 EkkoResponse::Destination(_) => {
 //!                     for ekko in responses.iter() {
-//!                         println!("{:?}", ekko)
+//!                         println!("{ekko:?}")
 //!                     }
 //!     
 //!                     return Ok(()) 
