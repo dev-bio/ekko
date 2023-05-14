@@ -241,7 +241,7 @@ impl Ekko {
         
         loop {
 
-            if let Some((address, packet)) = self.inner_recv(&mut buf)? {
+            while let Some((address, packet)) = self.inner_recv(&mut buf)? {
                 if packet.is_echo_request()? {
                     continue
                 }
@@ -263,6 +263,7 @@ impl Ekko {
 
             if (echo_requests.len() - echo_responses.len()) > 0 {
                 if timepoint.elapsed() < timeout {
+                    std::thread::yield_now();
                     continue
                 }
             }
